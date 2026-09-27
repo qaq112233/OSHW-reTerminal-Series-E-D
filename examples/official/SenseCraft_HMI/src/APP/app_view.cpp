@@ -653,7 +653,9 @@ static void finish_image_draw(bool is_dynamic)
         display().fillRect(display_w - top_margin - 70, top_margin, 28, 28, TFT_WHITE);
         drawIcon(display_w - top_margin - 70, top_margin, epd_bitmap_wifi);
     }
-    if (pct_int < 3)
+    // PMIC failures and a missing battery return -1: do not show a
+    // critical-battery icon for an unavailable measurement.
+    if (pct >= 0.0f && pct_int < 3)
     {
         display().fillRect(display_w - top_margin - 30, top_margin, 28, 28, TFT_WHITE);
         drawIcon(display_w - top_margin - 30, top_margin, epd_bitmap_battery);
