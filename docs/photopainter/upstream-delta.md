@@ -87,3 +87,25 @@ PhotoPainter 身份。这是协议兼容别名，**不意味着运行在 XIAO �
 虽已在锁内执行，但此前锁在 Deep Sleep 前释放，允许新显示操作插入；
 现在若被 blocker 取消，作用域析构会正常释放该锁。不修改云端应用逻辑。
 该改动缩小软件竞态窗口，**未经过并发实机压力与物理 rail 验证**。
+
+## 阶段 8：ED2208 官方六色与朝向源码对照
+
+- `boards/board_registry.h`：PhotoPainter 的旋转映射从 `{0,1,2,3}` 改为
+  `{2,3,0,1}`。Waveshare `display_bsp.cpp::EPD_ParseBMPImage()` 对 800×480
+  BMP 明确设 `Rotation=2`，`EPD_PixelRotate()` 把缓冲区转 180°；
+  Seeed_GFX 4-bpp `TFT_eSprite::drawPixel()` 的 rotation 2 也作 180° 变换。
+  `combo 521` 仍保留原 Seeed 的横屏 UI 和云端别名。
+- `boards/waveshare_photopainter/waveshare_photopainter.cpp`、`bringup.cpp`：
+  Seeed_GFX ED2208 初始化在命令 `0x30` 写 `0x08`，但 Waveshare 主例程
+  和低功耗例程都写 `0x03`。仅在 PhotoPainter 初始化后写回 `0x03`，
+  再按原有 POWER_OFF/BUSY 流程关闭控制器；不修改 Seeed_GFX 依赖。
+  诊断程序默认也从 rotation 2 开始，同时保留四向测试。
+- `tests/photopainter_registry.cpp`：断言四向旋转映射。
+
+六色的**软件编码已可从三侧源代码静态确定**：真实下载样本 EPD0
+`800×480`、4 bpp、mode 2、解压 192000 字节，六种索引均出现。
+Seeed `MAP_COLOR6` 与 Seeed_GFX `TFT_BLACK/WHITE/RED/YELLOW/BLUE/GREEN`
+均采用内部索引 `F/0/6/B/D/2`，ED2208 `COLOR_GET` 将它们映射为
+Waveshare `ColorBlack/White/Red/Yellow/Blue/Green` 的面板索引
+`0/1/3/2/5/6`。因此不需额外重排六色，但这只验证**编码一致**，
+不验证实物光学颜色、面板批次或最终装机方向。

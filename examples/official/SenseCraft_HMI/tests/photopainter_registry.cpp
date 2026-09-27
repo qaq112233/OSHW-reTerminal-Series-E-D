@@ -12,6 +12,10 @@ int main() {
     assert(board.model == board_registry::BoardModel::PhotoPainter);
     assert(screen.model == board_registry::BoardModel::PhotoPainter);
     assert(screen.combo_id == 521);
+    assert(screen.rotation_map[0] == 2);
+    assert(screen.rotation_map[1] == 3);
+    assert(screen.rotation_map[2] == 0);
+    assert(screen.rotation_map[3] == 1);
     assert(screen.width == 800 && screen.height == 480);
     assert(screen.color == board_registry::ScreenColor::Chromatic);
     assert(std::strcmp(screen.board_info_type, "xiao_diy_ee04") == 0);

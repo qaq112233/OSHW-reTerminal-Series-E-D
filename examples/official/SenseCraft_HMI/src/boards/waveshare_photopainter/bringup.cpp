@@ -20,7 +20,7 @@ uint32_t last_press_ms = 0;
 
 void show_step() {
     const bool orientation_test = step >= kColorCount;
-    const uint8_t rotation = orientation_test ? (step - kColorCount) : 0;
+    const uint8_t rotation = (2 + (orientation_test ? step - kColorCount : 0)) % 4;
     const uint16_t background = orientation_test ? TFT_WHITE : kColors[step];
     const uint16_t foreground = background == TFT_BLACK ? TFT_WHITE : TFT_BLACK;
 
@@ -54,6 +54,9 @@ void setup() {
     // Construct after the Arduino runtime has initialized PSRAM.
     display = new EPaper();
     display->begin();
+    // Match Waveshare EPD_Init's 0x30/0x03 before the first refresh.
+    display->writecommand(0x30);
+    display->writedata(0x03);
     // ED2208 init powers on the controller while EPaper initially marks it
     // asleep. Synchronize state, then execute the normal POWER_OFF/BUSY path.
     display->wake();

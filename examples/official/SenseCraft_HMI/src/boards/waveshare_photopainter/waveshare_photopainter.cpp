@@ -58,6 +58,10 @@ public:
         // then sleep() sends POWER_OFF (0x02) and waits for BUSY. Subsequent
         // update() calls wake -> refresh/BUSY -> sleep/BUSY automatically.
         display_.begin();
+        // Waveshare display_bsp.cpp::EPD_Init uses PLL 0x30 = 0x03;
+        // Seeed_GFX ED2208 defaults to 0x08 for the reTerminal E1002.
+        display_.native().writecommand(0x30);
+        display_.native().writedata(0x03);
         display_.native().wake();
         display_.native().sleep();
         Log.infoln("[PhotoPainter] ED2208 initialized and controller powered off");

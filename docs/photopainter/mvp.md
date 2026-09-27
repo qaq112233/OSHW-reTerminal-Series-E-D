@@ -26,7 +26,8 @@ BUSY 超时及物理 rail 传感，后续真机测试必须先验证供电和刷
 
 ## 已接入的休眠差异（仅软件验证）
 
-PhotoPainter 使用 ED2208 combo `521` 的 800×480 横屏布局；定时唤醒
+PhotoPainter 使用 ED2208 combo `521` 的 800×480 横屏布局（旋转映射
+从 Waveshare 800×480 BMP 路径取 rotation 2）；定时唤醒
 对 0–20 秒输入钳制至最短 1 秒，避免无符号下溢。PWR GPIO5 高有效，
 不加入 EXT1 ANY_LOW 唤醒掩码。进入 Deep Sleep 前在共享 SPI 锁内
 再次调用板级显示 sleep；AXP2101 适配见下文。实机供电与休眠行为尚未验证。
