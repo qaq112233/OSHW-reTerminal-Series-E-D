@@ -24,9 +24,11 @@ SenseCraft_HMI 不拆成脱离上游的新项目。
   `Pair -> MQTT -> Manifest -> Image Download`。
 - Python Emulator 的验证不等于 ESP32 硬件验证；SPI、PMIC、电子纸供电、
   刷新时序、掉电恢复和长期稳定性仍需在后续硬件阶段单独验证。
-- 2026-09-27 用户确定在无实物条件下按 Waveshare 示例做法继续移植，
-  每个大阶段完成后单独提交。`hardware.md` 区分源码级控制器关电与
-  未经实测的物理 rail 掉电；不能把编译通过当作真机验收。
+- 2026-09-27 用户确定无实物期间按差异驱动继续移植，每个大阶段单独提交。
+  已接入 PhotoPainter Board、离线显示诊断、云端 `xiao_diy_ee04` 别名、
+  横屏组合号、AXP2101 电源读数与休眠前显示关电；主固件及诊断构建通过。
+  `hardware.md` 区分源码级控制器关电与未经实测的物理 rail 掉电；
+  编译通过不是真机或 PhotoPainter 云端端到端验收。
 
 ## 后续开发优先查阅
 
