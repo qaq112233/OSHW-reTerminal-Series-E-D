@@ -11,8 +11,12 @@
   `https://www.waveshare.com/wiki/ESP32-S3-PhotoPainter`
 - 官方产品页（读取日期 2026-09-27）：
   `https://www.waveshare.com/esp32-s3-photopainter.htm`
-- 官方原理图：
+- 官方 V1 原理图（现有引用仅适用于 V1，不可直接外推到 V2）：
   `https://files.waveshare.com/wiki/ESP32-S3-PhotoPainter/ESP32-S3-PhotoPainter-Schematic.pdf`
+- 官方新版资料页（读取日期 2026-09-27，分别列出 V1、V2 原理图）：
+  `https://docs.waveshare.net/ESP32-S3-PhotoPainter/Resources-And-Documents`
+- 资料页列出的 V2 原理图（本次访问被验证页拦截，**未读取到 PDF**）：
+  `https://www.waveshare.net/w/upload/a/ae/ESP32-S3-PhotoPainter-Schematic-v2.0.pdf`
 - 官方显示屏手册：
   `https://files.waveshare.com/wiki/7.3inch-e-Paper-HAT-(E)/7.3inch-e-Paper-(E)-user-manual.pdf`
 
@@ -46,10 +50,11 @@
 
 已确认：
 
-- 官方原理图存在 `EPD_VCC`、驱动开关/升压电路和 `Q2 AO3401`。
-- 官方原理图把 `SYS_OUT` 与 `GP5` 相连；源码同时把 GPIO5 配置为 PWR 按键。
-- 当前应用源码的完整刷新路径为：写显示 RAM -> `0x04` POWER_ON -> BUSY 等待
-  -> `0x12` DISPLAY_REFRESH -> BUSY 等待 -> `0x02` POWER_OFF -> BUSY 等待。
+- 此前对**旧版 V1 原理图**的记录包含 `EPD_VCC`、驱动开关/升压电路和 `Q2 AO3401`；尚未确认用户实物属于哪个硬件版本，也未核对 V2 网络。
+- 已记录的 V1 原理图把 `SYS_OUT` 与 `GP5` 相连；源码同时把 GPIO5 配置为 PWR 按键。**不能据此把 GPIO5 当作 EPD 电源开关。**
+- 当前应用源码的刷新路径为：写显示 RAM -> `0x04` POWER_ON -> BUSY 等待
+  -> `0x12` DISPLAY_REFRESH -> BUSY 等待 -> `0x02` POWER_OFF -> BUSY 等待
+  （`components/port_bsp/display_bsp.cpp:149-168`）。**这里只确认控制器命令，不能证明物理 `EPD_VCC` rail 已关。**
 - `EPD_Display()` 已调用上述 `EPD_TurnOnDisplay()` 路径；官方手册要求刷新结束前后
   必须处理 POWER_OFF，深睡时使用 `0x07` + `0xA5`，并且退出深睡需要硬件复位。
 
@@ -57,11 +62,29 @@
 > 执行正确的 panel power-off / sleep 流程，并关闭墨水屏供电 rail。网络等待、MQTT、
 > 下载、idle、异常流程和 Deep Sleep 前都不能让墨水屏长期带电。
 
-具体断电时序以 Waveshare 当前源码和官方文档为准，不要自行猜测。
+本阶段按用户确认复刻 Waveshare 示例时序；物理供电 rail 的实际状态仍属待实机验证，不能凭代码推断。
+
+### 2026-09-27 开发基准与验证边界
+
+- 用户确认本阶段以 Waveshare 示例的上电、BUSY 等待、刷新、`0x02 POWER_OFF`
+  做法为软件实现基准；**不以 V2 图纸或物理 rail 测量为开发阻塞项**。
+- 该基准不等于已验证 `EPD_VCC` 物理掉电。没有实物时，代码与文档一律只
+  宣称“复刻示例控制器关电时序”，不声称真机掉电或电气安全验收完成。
+- 子模块当前提交 `a5e8f757ba0cafbb5586f07d3e83bda3184c0845`；本次查询
+  Waveshare `origin/HEAD` 返回相同 SHA。
+- `components/port_bsp/display_bsp.cpp:92-99` 的 BUSY 等待没有超时；
+  `:149-168` 的正常刷新末尾发送 `0x02` 并等待 BUSY。实现与测试应覆盖
+  失败、重启、Deep Sleep 路径，不把“驱动返回”等同于物理掉电。
+- `components/pmicpower/power_bsp.cpp:84-100` 设置 ALDO1–4 为 3300 mV，
+  但没有说明哪个驱动 EPD；不得猜测后关闭任一 ALDO。
+- Seeed `src/boards/common/epaper_display.cpp` 在 `begin()` 中直接调用
+  `display_.begin()`；`src/APP/app_view.cpp` 与 `src/boards/common/screen_assets.cpp`
+  有多处 `EPaper::update()`。必须检查当前 Seeed_GFX 驱动能否在所有刷新结束时
+  完成 Waveshare 同等 `POWER_OFF`，避免屏幕在网络等待中停留在上电状态。
 
 ## TODO / 待确认
 
-- `EPD_VCC` 的完整使能/关断条件：需要结合原理图网络 `Q2 AO3401`、`SYS_OUT`、
+- `EPD_VCC` 的完整使能/关断条件：需先确定实际硬件 V1/V2，并结合**对应版本**原理图网络 `Q2 AO3401`、`SYS_OUT`、
   `GP5` 和 PMIC 寄存器确认，当前不把“GPIO5 即 EPD rail 开关”作为结论。
 - PMIC 型号表述差异：源码和原理图使用 `AXP2101`，官方产品页文字写作 `TG28`；两者
   的版本/封装/对应关系待向 Waveshare 资料确认。
