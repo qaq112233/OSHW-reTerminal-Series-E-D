@@ -1,6 +1,7 @@
 #include "boards/common/screen_assets.h"
 
 #include "TFT_eSPI.h"
+#include "boards/common/board.h"
 #include "driver.h"
 #include "resources/pages/e1001_epd.h"
 #include "resources/pages/e1002_epd.h"
@@ -15,26 +16,26 @@ void drawWaitingScreen(EPaper& display, uint16_t fg_color, uint16_t bg_color)
 {
 #if (BOARD_SCREEN_COMBO == 520)
     display.drawBitmap(0, 0, e1001, display.width(), display.height(), TFT_WHITE, TFT_BLACK);
-    display.update();
+    Board::GetInstance().RefreshDisplay();
 #elif (BOARD_SCREEN_COMBO == 521)
     display.pushImage(0, 0, display.width(), display.height(), (uint16_t*)e1002);
-    display.update();
+    Board::GetInstance().RefreshDisplay();
 #elif (BOARD_SCREEN_COMBO == 522)
     display.drawBitmap(0, 0, e1003, display.width(), display.height(), TFT_WHITE, TFT_BLACK);
-    display.update();
+    Board::GetInstance().RefreshDisplay();
 #elif (BOARD_SCREEN_COMBO == 523)
     display.pushImage(0, 0, display.width(), display.height(), (uint16_t*)e1004);
-    display.update();
+    Board::GetInstance().RefreshDisplay();
 #elif (BOARD_SCREEN_COMBO == 506) || (BOARD_SCREEN_COMBO == 502) || (BOARD_SCREEN_COMBO == 515)
     display.update(0, 0, display.width(), display.height(), (uint16_t*)e1001);
 #elif (BOARD_SCREEN_COMBO == 509) || (BOARD_SCREEN_COMBO == 516)
     display.update(0, 0, display.width(), display.height(), (uint16_t*)e1002);
 #elif (BOARD_SCREEN_COMBO == 510)
     display.pushImage(0, 0, display.width(), display.height(), (const uint16_t*)xiao_diy_kit);
-    display.update();
+    Board::GetInstance().RefreshDisplay();
 #else
     display.drawBitmap(0, 0, xiao_diy_kit, display.width(), display.height(), fg_color, bg_color);
-    display.update();
+    Board::GetInstance().RefreshDisplay();
 #endif
 }
 
@@ -51,7 +52,7 @@ bool drawInitialCover(EPaper& display, bool device_bound)
 #else
     display.pushImage(0, 0, display.width(), display.height(), (const uint16_t*)ee03cover);
 #endif
-    display.update();
+    Board::GetInstance().RefreshDisplay();
     return true;
 #else
     return false;

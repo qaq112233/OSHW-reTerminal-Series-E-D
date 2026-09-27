@@ -38,7 +38,9 @@ public:
     virtual void SetDebugOutput(bool) {}
     virtual void InitEarlyHardware() {}
     virtual void InitHardware() {}
-    virtual void PrepareForDeepSleep() {}
+    virtual bool PrepareForDeepSleep() { return true; }
+    // One full framebuffer refresh. Boards with switchable EPD VDD override.
+    virtual bool RefreshDisplay();
 
     virtual const board_registry::BoardProfile& GetProfile() const { return board_registry::current_board(); }
     virtual const board_registry::BoardScreenEntry& GetScreen() const { return board_registry::current_board_screen(); }

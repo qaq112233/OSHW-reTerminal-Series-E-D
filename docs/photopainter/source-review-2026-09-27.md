@@ -7,7 +7,7 @@
 | 云端标识 | `board_registry.h` 的 PhotoPainter combo 521 报 `xiao_diy_ee04` / `7_3_color_800_480` / `800x480`；`app_sensecraft.cpp::ensureSession()` 原样发送 | 与 Python emulator 的 board 标识一致；不代表真实设备云端端到端通过 |
 | EPD0 | `image_parser.cpp::draw_epd_frame_internal()` 解压后以 4 bpp `pushImage`；`epd_color_map`、Seeed_GFX ED2208 的颜色映射与 Waveshare 枚举逐色一致 | 真实下载样本六种索引的软件链路已核对；物理颜色未测 |
 | 横屏 | Waveshare `EPD_ParseBMPImage()` 对 800×480 BMP 取 Rotation 2；Seeed_GFX rotation 2 同样反转 180° | `rotation_map={2,3,0,1}`；补足首次配对页面初始方向；装机正反与镜像仍需肉眼确认 |
-| 刷新关电 | Seeed_GFX `EPaper::update()` 为 wake→写入→refresh/BUSY→sleep/BUSY；板初始化修正初始化后上电状态；Deep Sleep 钩子再次 sleep | 软件时序对齐 Waveshare `EPD_TurnOnDisplay()` 的 0x04/0x12/0x02；驱动 BUSY 无限等待，不能从这里推断物理 rail 掉电 |
+| 刷新关电 | Seeed_GFX `EPaper::update()` 为 wake→写入→refresh/BUSY→sleep/BUSY；板初始化修正初始化后上电状态；Deep Sleep 钩子再次 sleep | V1 现增加 ALDO3 上下电、寄存器回读与 180 秒故障保护；Seeed_GFX BUSY 仍无限等待，故障切电不等于正常刷新完成，物理电压待测 |
 | AXP2101 | PhotoPainter 状态位直接对照本地定版 XPowersLib：STATUS1 bit3 电池、bit5 VBUS good，STATUS2 bit3 VBUS 有效、bits5–7 充电状态；电压/百分比沿用芯片寄存器 | 读失败返回不可用；图片角标不再把 -1 误判为低电量；使用外部供电含义的 `charging` 以兼容 Seeed 自动休眠策略；真实电压、百分比精度和供电状态待测 |
 | 定时与低电量 | `app_sensecraft.cpp::request_update_timer_start()` 使用保存的睡眠间隔；`app_device_info.cpp` 定时器唤醒选图，`app_power_manager` 阻止下载/刷新时休眠 | 未改协议与调度；无 RTC 板级实现时不执行 04:30 RTC 维护窗口，改走周期 timer 唤醒 |
 | 唤醒 | 通用 HAL 已启用低有效按键 EXT1；Waveshare Basic_mode 用 GPIO0/4、GPIO4 RTC 上拉且长按路径等待松开 | PhotoPainter 休眠前补齐 RTC 上拉和双按键释放；GPIO5 是高有效 PWR，不进入 ANY_LOW |
@@ -18,8 +18,8 @@
 无实物，**不能**宣称六色光学正确、装机朝向、EPD BUSY 电平、控制器
 POWER_OFF 后物理 `EPD_VCC` 已断、真实电流、按键唤醒、PMIC 量测、
 Wi-Fi/MQTT/下载/深睡完整运行。用户提供的原理图为 V1，已确认 V1 的 ALDO3→EPD_VCC→屏幕 VDD；
-但 V2 原理图仍未取得，且实物板级版本未知。若需对 V2 实现 EPD_VCC
-物理开关，请提供 Waveshare V2 schematic PDF，不能从 V1 网络猜测。
+用户已确认实物是 V1，当前软件据 V1 图纸控制 ALDO3；V2 不在本轮适配范围。
+寄存器读数不等于 J1 VDD 实测为零，也不能排除信号线反向供电。
 
 ## 回归方法
 

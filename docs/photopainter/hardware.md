@@ -50,9 +50,9 @@
 
 已确认：
 
-- 用户提供的 `/mnt/c/Users/QAQ/Desktop/ESP32-S3-PhotoPainter-Schematic.pdf` 为与资料页 V1 同名且同大小（1,251,764 字节）的单页 Altium 原理图；其 PDF 创建日期为 2025-10-20，SHA-256 为 `82472764688ed346dcb264a71b0260bb74de4efa6fc8843f8da0417e9f99c6ec`。这是 **V1 资料**，不是 V2。尚未确认用户实物的板级版本。
+- 用户提供的 `/mnt/c/Users/QAQ/Desktop/ESP32-S3-PhotoPainter-Schematic.pdf` 为与资料页 V1 同名且同大小（1,251,764 字节）的单页 Altium 原理图；其 PDF 创建日期为 2025-10-20，SHA-256 为 `82472764688ed346dcb264a71b0260bb74de4efa6fc8843f8da0417e9f99c6ec`。这是 **V1 资料**，不是 V2。用户已明确确认实物为 V1。
 - **V1 图纸可直接沿网络追踪**：AXP2101 的 ALDO3 引脚 16 输出 `EPD_VCC`；屏幕连接器 J1 的 VDD 引脚 38 接 `EPD_VCC`，同网络还供给面板驱动升压电路 Q1/Q2（AO3400/AO3401）及相关电容。`VCC3V3` 为另一条主电源，不应与 `EPD_VCC` 混同。
-- 现有 Waveshare `power_bsp.cpp::Custom_PmicRegisterInit()` 和本移植均只将 ALDO3 目标电压设为 3300 mV，**没有**调用 `disableALDO3()`。Seeed_GFX/Waveshare 的 `0x02 POWER_OFF` 不是 AXP2101 ALDO3 的开关命令；即便刷新完成，它也不能证明 V1 的物理 `EPD_VCC` 已断。
+- 现有 Waveshare `power_bsp.cpp::Custom_PmicRegisterInit()` 只将 ALDO3 目标电压设为 3300 mV，**没有**调用 `disableALDO3()`；本移植现另行执行 ALDO3 物理开关。Seeed_GFX/Waveshare 的 `0x02 POWER_OFF` 不是 AXP2101 ALDO3 的开关命令；即便刷新完成，它也不能证明 V1 的物理 `EPD_VCC` 已断。
 - 已记录的 V1 原理图把 `SYS_OUT` 与 `GP5` 相连；源码同时把 GPIO5 配置为 PWR 按键。**不能据此把 GPIO5 当作 EPD 电源开关。**
 - 当前应用源码的刷新路径为：写显示 RAM -> `0x04` POWER_ON -> BUSY 等待
   -> `0x12` DISPLAY_REFRESH -> BUSY 等待 -> `0x02` POWER_OFF -> BUSY 等待
@@ -64,14 +64,14 @@
 > 执行正确的 panel power-off / sleep 流程，并关闭墨水屏供电 rail。网络等待、MQTT、
 > 下载、idle、异常流程和 Deep Sleep 前都不能让墨水屏长期带电。
 
-本阶段按用户确认复刻 Waveshare 示例时序；物理供电 rail 的实际状态仍属待实机验证，不能凭代码推断。
+本移植在 V1 上额外通过 AXP2101 ALDO3 控制 EPD_VCC。寄存器回读只能证明 PMIC 接受开关操作，不能代替在屏幕 J1 VDD 上量测电压及检查 GPIO 反向供电。
 
 ### 2026-09-27 开发基准与验证边界
 
 - 用户确认本阶段以 Waveshare 示例的上电、BUSY 等待、刷新、`0x02 POWER_OFF`
-  做法为软件实现基准；**不以 V2 图纸或物理 rail 测量为开发阻塞项**。
+  做法为软件实现基准；用户已确定实物是 V1，故本移植依 V1 原理图直接控制 ALDO3，**不以 V2 图纸或物理 rail 测量为软件开发阻塞项**。
 - 该基准不等于已验证 `EPD_VCC` 物理掉电。没有实物时，代码与文档一律只
-  宣称“复刻示例控制器关电时序”，不声称真机掉电或电气安全验收完成。
+  宣称“执行示例控制器关电时序并要求 PMIC ALDO3 寄存器回读为关闭”，不声称真机掉电或电气安全验收完成。
 - 子模块当前提交 `a5e8f757ba0cafbb5586f07d3e83bda3184c0845`；本次查询
   Waveshare `origin/HEAD` 返回相同 SHA。
 - `components/port_bsp/display_bsp.cpp:92-99` 的 BUSY 等待没有超时；
@@ -86,7 +86,7 @@
 
 ## TODO / 待确认
 
-- `EPD_VCC` 的完整物理关断方案：V1 证实由 AXP2101 ALDO3 供电；先确定实物板级版本并取得 V2 原理图、核对 V2 的 ALDO3 负载，才决定是否以板级开关控制 `EPD_VCC`。当前绝不把 GPIO5 当作 EPD rail 开关。
+- `EPD_VCC` 的电气验收：用户确认 V1，现有实现使用 ALDO3。待实物测量 J1 VDD 在刷新中/后/深睡时的电压、测 GPIO 信号反灌和整机电流；V2 不在本轮适配范围。GPIO5 不是 EPD rail 开关。
 - PMIC 型号表述差异：源码和原理图使用 `AXP2101`，官方产品页文字写作 `TG28`；两者
   的版本/封装/对应关系待向 Waveshare 资料确认。
 - 锂电接口名称差异：官方原理图标为 `PH1.25 2P`，官方产品页写作 `MX1.25 2PIN`；
@@ -100,7 +100,7 @@
   但最终 GPIO 映射需在移植板级定义中再次核对。
 - SD/TF 的最终运行模式：源码构造函数默认 width=4，也支持传入 1-bit；当前 application 的实际调用为 4-bit。
 - 各休眠模式的精确电流、唤醒源去抖时间和异常掉电恢复策略：待实测。
-- EPD 刷新过程中断网、重启、看门狗复位后的恢复策略：待设计并实测。
+- EPD 刷新途中断网不应延长供电；重启入口与故障保护任务会尝试关闭 ALDO3；异常重启、PMIC/I2C 故障以及 BUSY 永不释放的恢复效果待实测。
 
 ### PMIC 软件契约补充（2026-09-27）
 
@@ -122,3 +122,18 @@ bit 3 辅助判断 USB 输入。电池电压/电量经芯片 ADC/fuel gauge 寄�
 HEAD 自称 PDF、长度 2,102,659 字节），因此**未读取 V2 图纸**。不能据
 验证页或 V1 网络假装完成 V2 电源设计。V1 图纸只证实网络连接；ALDO3
 实际启用位、面板 VDD 关断后的电压/残余供电路径仍需真机测量。
+
+### V1 ALDO3 软件保护实现（2026-09-27）
+
+PhotoPainter Board 与离线诊断先关闭 ALDO3、设为 3300 mV，仅在初始化/
+刷新时使能；再次执行 Waveshare 的面板寄存器初始化，复用 Seeed_GFX 的
+帧传输、`0x12` 刷新/BUSY、`0x02` POWER_OFF/BUSY，然后关闭 ALDO3
+并回读开关寄存器 bit 2。休眠前再次要求关断成功，失败则取消休眠。
+
+Seeed_GFX ED2208 内部的 BUSY 仍是无超时循环，因此另起板级 FreeRTOS
+故障保护任务：EPD_VCC 上电前开始计时；超过 180 秒时尝试关 ALDO3
+并重启。180 秒是异常上限，不是正常刷新延时；故障时无法保证等待
+BUSY 正常结束，也不能在 PMIC 通信失效或 GPIO 信号反灌时保证物理
+电压为零。若故障任务创建失败，则拒绝上电显示；PMIC 初始化或关电回读失败时
+重启而非继续进入 Wi-Fi/idle。反复重启仍不能修复 PMIC/I2C 硬件故障。Waveshare 示例并未
+实现上述 ALDO3 开关，不能把“复刻示例”与“实物断电已验收”混为一谈。

@@ -154,3 +154,23 @@ PMIC 寄存器状态位、是否插电、锂电百分比与电压的读法与 XP
 - PhotoPainter Board 仅更新注释：没有更改 PMIC 运行行为，也没有在未知板版
   上擅自关闭 ALDO3。V2 官方 PDF 链接直连仍返回验证 HTML，虽可读中文目录，
   但目录内容不能代替原理图；需 V2 PDF 或实物版本确认后再设计物理开关。
+
+## 阶段 13：V1 物理 rail 软件开关与故障保护
+
+- 新增板级 `panel_power.h`：据用户确认的 V1 图纸，ALDO3 →
+  `EPD_VCC` → J1 VDD；上电/断电及 PMIC 位回读；按 Waveshare
+  `EPD_Init` 重新初始化每个物理电源周期。正常刷新复用 Seeed_GFX
+  的写帧、刷新/BUSY、POWER_OFF/BUSY；诊断目标也遵守同一流程。
+- `boards/waveshare_photopainter/{waveshare_photopainter.cpp,bringup.cpp}`：
+  启动恢复先关 ALDO3，初始化后关电；显示前才上电，完成后关电；
+  深睡前再次确保关电；PMIC 初始化或关电失败时重启而不继续网络等待。
+  板级独立故障任务防止 Seeed_GFX 无限 BUSY
+  时长期上电：180 秒后尝试关 ALDO3 并重启。PMIC 通信故障与信号
+  反灌无法在软件中保证，待实机验证。
+- Seeed 公共文件：`boards/common/board.{h,cpp}` 新增可覆写的
+  `RefreshDisplay()`，`hal/hal.{h,cpp}` 增加 `displayUpdate()`，
+  `APP/app_view.cpp` 与 `boards/common/screen_assets.cpp` 将零参数
+  `update()` 接入通用入口；`APP/app_device_info.cpp` 在断电失败时
+  取消深睡。其他 Seeed 板默认仍调用原 `EPaper::update()`。
+- 新增 `tests/photopainter_rail_contract.py` 静态验证入口与保护；
+  没有硬件时无法验收 J1 VDD 实际电压、BUSY 和残余电流。

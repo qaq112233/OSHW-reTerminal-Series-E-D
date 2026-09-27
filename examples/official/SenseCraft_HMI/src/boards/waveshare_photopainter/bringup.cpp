@@ -3,10 +3,15 @@
 #include <Arduino.h>
 #include "TFT_eSPI.h"
 #include "boards/waveshare_photopainter/config.h"
+#include "boards/waveshare_photopainter/panel_power.h"
+#include <Wire.h>
 
 namespace {
 
 EPaper* display = nullptr;
+XPowersPMU pmic;
+photopainter_panel::PanelPowerGuard rail_guard;
+bool panel_ready = false;
 constexpr uint16_t kColors[] = {
     TFT_WHITE, TFT_BLACK, TFT_RED, TFT_YELLOW, TFT_BLUE, TFT_GREEN
 };
@@ -41,8 +46,28 @@ void show_step() {
 
     // Seeed_GFX ED2208: POWER_ON, framebuffer, DISPLAY_REFRESH, BUSY,
     // POWER_OFF (0x02), BUSY. Never wait for a key while the driver is awake.
+    rail_guard.arm();
+    if (!photopainter_panel::railOn(pmic)) {
+        if (photopainter_panel::railOff(pmic)) rail_guard.disarm();
+        else esp_restart();
+        Serial.println("[Bring-up] ALDO3 enable failed; no refresh");
+        return;
+    }
+    if (!photopainter_panel::initController(*display)) {
+        Serial.println("[Bring-up] EPD init BUSY timeout; turning rail off");
+        if (photopainter_panel::railOff(pmic)) rail_guard.disarm();
+        else esp_restart();
+        return;
+    }
     display->update();
-    Serial.printf("[Bring-up] pattern %u done, ED2208 controller off; press KEY for next\n",
+    if (!photopainter_panel::railOff(pmic)) {
+        panel_ready = false;
+        Serial.println("[Bring-up] ALDO3 disable failed; restarting");
+        esp_restart();
+        return;
+    }
+    rail_guard.disarm();
+    Serial.printf("[Bring-up] pattern %u done; controller POWER_OFF, EPD_VCC rail off; press KEY for next\n",
                   static_cast<unsigned>(step + 1));
 }
 
@@ -51,22 +76,58 @@ void show_step() {
 void setup() {
     Serial.begin(115200);
     pinMode(PHOTOPAINTER_KEY_BUTTON, INPUT_PULLUP);
-    // Construct after the Arduino runtime has initialized PSRAM.
+    if (!pmic.init(Wire, PHOTOPAINTER_PMIC_SDA,
+                   PHOTOPAINTER_PMIC_SCL, PHOTOPAINTER_PMIC_ADDRESS)) {
+        Serial.println("[Bring-up] PMIC initialization failed; restarting");
+        esp_restart();
+        return;
+    }
+    if (!rail_guard.start(pmic)) {
+        Serial.println("[Bring-up] Rail watchdog unavailable; no display");
+        if (!photopainter_panel::railOff(pmic)) esp_restart();
+        return;
+    }
+    if (!photopainter_panel::railOff(pmic)) {
+        rail_guard.arm(); // retry if boot left ALDO3 on
+        Serial.println("[Bring-up] Cannot shut down EPD_VCC at boot; restarting");
+        esp_restart();
+        return;
+    }
+    if (!pmic.setALDO3Voltage(3300)) {
+        Serial.println("[Bring-up] ALDO3 voltage setup failed");
+        return;
+    }
+    rail_guard.arm();
+    if (!photopainter_panel::railOn(pmic)) {
+        if (photopainter_panel::railOff(pmic)) rail_guard.disarm();
+        else esp_restart();
+        Serial.println("[Bring-up] EPD_VCC enable failed");
+        return;
+    }
+    // Construct only after the Arduino runtime has initialized PSRAM.
     display = new EPaper();
     display->begin();
-    // Match Waveshare EPD_Init's 0x30/0x03 before the first refresh.
-    display->writecommand(0x30);
-    display->writedata(0x03);
-    // ED2208 init powers on the controller while EPaper initially marks it
-    // asleep. Synchronize state, then execute the normal POWER_OFF/BUSY path.
+    if (!photopainter_panel::initController(*display)) {
+        if (photopainter_panel::railOff(pmic)) rail_guard.disarm();
+        else esp_restart();
+        Serial.println("[Bring-up] EPD init BUSY timeout");
+        return;
+    }
     display->wake();
     display->sleep();
+    if (!photopainter_panel::railOff(pmic)) {
+        Serial.println("[Bring-up] ALDO3 disable failed; restarting");
+        esp_restart();
+        return;
+    }
+    rail_guard.disarm();
+    panel_ready = true;
     show_step();
 }
 
 void loop() {
     const bool pressed = digitalRead(PHOTOPAINTER_KEY_BUTTON) == LOW;
-    if (pressed && !last_pressed && millis() - last_press_ms > 250) {
+    if (panel_ready && pressed && !last_pressed && millis() - last_press_ms > 250) {
         last_press_ms = millis();
         step = (step + 1) % (kColorCount + 4);
         show_step();

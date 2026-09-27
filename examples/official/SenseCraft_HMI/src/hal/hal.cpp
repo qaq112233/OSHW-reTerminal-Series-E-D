@@ -246,9 +246,9 @@ bool Hal::buttonIsPressed(size_t index)
     return btn && btn->isPressed();
 }
 
-void Hal::prepareForDeepSleep()
+bool Hal::prepareForDeepSleep()
 {
-    Board::GetInstance().PrepareForDeepSleep();
+    return Board::GetInstance().PrepareForDeepSleep();
 }
 
 void Hal::enableButtonWakeup()
@@ -457,6 +457,13 @@ void Hal::touchEnableGestureWakeup(int active_level, uint32_t idle_timeout_ms)
 void Hal::touchEnableWakeup()
 {
     touchEnableGestureWakeup(TOUCH_WAKEUP_ACTIVE_LEVEL, TOUCH_WAKEUP_IDLE_TIMEOUT_MS);
+}
+
+bool Hal::displayUpdate()
+{
+    if (Board::GetInstance().RefreshDisplay()) return true;
+    Log.errorln("[HAL] Display refresh failed; check EPD_VCC / PMIC / BUSY");
+    return false;
 }
 
 EPaper& Hal::display()

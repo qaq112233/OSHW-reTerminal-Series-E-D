@@ -662,7 +662,7 @@ static void finish_image_draw(bool is_dynamic)
     }
 
     uint32_t display_start = millis();
-    display().update();
+    HAL::GetHAL().displayUpdate();
     Log.infoln("[app_view] Display update completed in %lu ms", static_cast<unsigned long>(millis() - display_start));
 
 }
@@ -745,7 +745,7 @@ static bool drawImageFromFileStream(int16_t x, int16_t y, bool with_color, bool 
         display().setRotation(screen_rotation_map(0));
         display().fillSprite(TFT_WHITE);
         uint32_t clean_start = millis();
-        display().update();
+        HAL::GetHAL().displayUpdate();
         Log.infoln("[app_view] E1003 low-battery ghost-clean refresh completed in %lu ms (battery=%.1f%%)",
                    static_cast<unsigned long>(millis() - clean_start),
                    battery_percent);
@@ -965,7 +965,7 @@ static void displayHomeUI(const unsigned char *qrBitmap1, const unsigned char *q
                screenCombo(),
                display().width(),
                display().height());
-    display().update();
+    HAL::GetHAL().displayUpdate();
     Log.infoln("[app_view] Startup UI display update returned in %u ms",
                static_cast<unsigned long>(millis() - updateStart));
 }
@@ -1116,14 +1116,14 @@ static void diy_displayHomeUI(uint32_t index, const char *hotspotName, const cha
 
         if (!has_prefix_or_hotspot && !(layout.bodySuffix && layout.bodySuffix[0] != '\0'))
         {
-            display().update();
+            HAL::GetHAL().displayUpdate();
             return;
         }
 
         if (line.length() == 0)
         {
             // Only suffix remains; keep spacing consistent.
-            display().update();
+            HAL::GetHAL().displayUpdate();
             return;
         }
 
@@ -1338,7 +1338,7 @@ static void diy_displayHomeUI(uint32_t index, const char *hotspotName, const cha
         }
     }
 
-    display().update();
+    HAL::GetHAL().displayUpdate();
 }
 
 
@@ -1435,7 +1435,7 @@ static void diy_displayActivationCodePage(int activationCode, const String &hmiU
     u8g2Fonts.print(hmiUrl);
     display().drawFastHLine(url_x, url_baseline + layout.urlUnderlineOffset, url_w, TEXT_COLOR);
 
-    display().update();
+    HAL::GetHAL().displayUpdate();
     display().setRotation(screen_rotation_map(0));
 }
 
@@ -1569,7 +1569,7 @@ static void displayActivationCodePage(int activationCode, String hmiUrl)
                               DEFAULT_FG_COLOR);
     }
 
-    display().update();
+    HAL::GetHAL().displayUpdate();
 }
 
 static void init_fonts()
@@ -1928,7 +1928,7 @@ namespace
         draw_centered_low_battery_text("Battery low", title_font_size, title_top, fg_color, bg_color);
         draw_centered_low_battery_text("Please charge the device", hint_font_size, hint_top, fg_color, bg_color);
 
-        display().update();
+        HAL::GetHAL().displayUpdate();
         display().setRotation(screen_rotation_map(0));
     }
 
@@ -1961,7 +1961,7 @@ namespace
 
         u8g2Fonts.setCursor(x, y);
         u8g2Fonts.print(message);
-        display().update();
+        HAL::GetHAL().displayUpdate();
         display().setRotation(screen_rotation_map(0));
 
         g_errorMessage[0] = '\0';
@@ -2025,7 +2025,7 @@ namespace
             g_showing_activation = false;
             HAL::SharedSpiLock spiLock;
             display().fillRect(0, 0, display().width(), display().height(), TFT_WHITE);
-            display().update();
+            HAL::GetHAL().displayUpdate();
             if (!get_portal_status())
             {
                 StartDeepSleepTimer();

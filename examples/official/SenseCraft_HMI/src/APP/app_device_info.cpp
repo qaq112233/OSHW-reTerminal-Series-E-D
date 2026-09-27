@@ -765,7 +765,12 @@ void EnterDeepSleep()
     // esp_deep_sleep_start(): releasing it earlier allows another display
     // refresh to begin after the board has completed POWER_OFF/BUSY.
     HAL::SharedSpiLock spi_lock;
-    HAL::GetHAL().prepareForDeepSleep();
+    if (!HAL::GetHAL().prepareForDeepSleep())
+    {
+        Log.errorln("[app_device_info] Deep sleep cancelled: panel power-off failed.");
+        deep_sleep_pending.store(false);
+        return;
+    }
     if (app_power_manager_has_blocker())
     {
         Log.infoln("[app_device_info] Deep sleep cancelled after display shutdown.");

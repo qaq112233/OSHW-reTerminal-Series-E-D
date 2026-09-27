@@ -3,12 +3,12 @@
 #include "boards/common/board.h"
 #include "boards/waveshare_photopainter/config.h"
 #include "boards/waveshare_photopainter/axp2101_status.h"
+#include "boards/waveshare_photopainter/panel_power.h"
 
 #include <Wire.h>
 #include <esp_sleep.h>
 #include <driver/rtc_io.h>
-#define XPOWERS_CHIP_AXP2101
-#include <XPowersLib.h>
+
 #include "ArduinoLog.h"
 #include "TFT_eSPI.h"
 
@@ -35,24 +35,42 @@ public:
         boot_.init();
         key_.init();
         power_.init();
+        // Reset recovery: turn off EPD_VCC before mounting LittleFS or
+        // starting network services (a previous refresh may have reset).
+        pmic_ready_ = pmic_.init(Wire, PHOTOPAINTER_PMIC_SDA,
+                                 PHOTOPAINTER_PMIC_SCL, PHOTOPAINTER_PMIC_ADDRESS);
+        if (!pmic_ready_) {
+            Log.errorln("[PhotoPainter] PMIC unavailable; cannot establish safe EPD_VCC state");
+            esp_restart();
+            return;
+        }
+        Wire.setClock(100000);
+        guard_ready_ = rail_guard_.start(pmic_);
+        if (!photopainter_panel::railOff(pmic_)) {
+            // The guard may retry rail-off if restart stalls.
+            if (guard_ready_) rail_guard_.arm();
+            pmic_ready_ = false;
+            Log.errorln("[PhotoPainter] Cannot disable EPD_VCC at startup; restarting");
+            esp_restart();
+            return;
+        }
     }
 
     void InitHardware() override {
-        // XPowersLib::init() initializes Wire on the Waveshare pins.
-        pmic_ready_ = pmic_.init(Wire, PHOTOPAINTER_PMIC_SDA,
-                                 PHOTOPAINTER_PMIC_SCL, PHOTOPAINTER_PMIC_ADDRESS);
-        Wire.setClock(100000);
         if (!pmic_ready_) {
-            Log.warningln("[PhotoPainter] AXP2101 init failed; power status unavailable");
+            Log.errorln("[PhotoPainter] AXP2101 unavailable; display disabled");
+            return;
         } else {
             // Mirror Waveshare power_bsp.cpp's register configuration.
-            // Voltage selection does not imply enabling or disabling a rail;
-            // V1 schematic maps ALDO3 to EPD_VCC; V2 and the actual board
-            // revision remain unverified, so do not toggle that rail here.
+            // V1 schematic maps ALDO3 to EPD_VCC; voltage selection happens
+            // while the rail is off, then RefreshDisplay switches it on/off.
             if (pmic_.getDC1Voltage() != 3300) pmic_.setDC1Voltage(3300);
             if (pmic_.getALDO1Voltage() != 3300) pmic_.setALDO1Voltage(3300);
             if (pmic_.getALDO2Voltage() != 3300) pmic_.setALDO2Voltage(3300);
-            if (pmic_.getALDO3Voltage() != 3300) pmic_.setALDO3Voltage(3300);
+            if (pmic_.getALDO3Voltage() != 3300 && !pmic_.setALDO3Voltage(3300)) {
+                Log.errorln("[PhotoPainter] Cannot set ALDO3 / EPD_VCC to 3300 mV");
+                return;
+            }
             if (pmic_.getALDO4Voltage() != 3300) pmic_.setALDO4Voltage(3300);
             pmic_.setVbusCurrentLimit(XPOWERS_AXP2101_VBUS_CUR_LIM_2000MA);
             pmic_.setPrechargeCurr(XPOWERS_AXP2101_PRECHARGE_50MA);
@@ -62,27 +80,61 @@ public:
             pmic_.enableBattVoltageMeasure();
         }
 
-        // Seeed_GFX ED2208 init sends POWER_ON (0x04). Its EPaper object
-        // initially reports asleep; wake() first synchronizes that state,
-        // then sleep() sends POWER_OFF (0x02) and waits for BUSY. Subsequent
-        // update() calls wake -> refresh/BUSY -> sleep/BUSY automatically.
+        if (!guard_ready_) {
+            Log.errorln("[PhotoPainter] Rail watchdog unavailable; display disabled");
+            return;
+        }
+
+        // Seeed_GFX sets up SPI and the sprite once; the V1 panel then needs
+        // Waveshare's register sequence after every physical VDD cycle.
+        rail_guard_.arm();
+        if (!photopainter_panel::railOn(pmic_)) {
+            Log.errorln("[PhotoPainter] Cannot enable EPD_VCC for init");
+            powerOffPanel();
+            return;
+        }
+        rail_on_ = true;
         display_.begin();
-        // Waveshare display_bsp.cpp::EPD_Init uses PLL 0x30 = 0x03;
-        // Seeed_GFX ED2208 defaults to 0x08 for the reTerminal E1002.
-        display_.native().writecommand(0x30);
-        display_.native().writedata(0x03);
-        display_.native().wake();
-        display_.native().sleep();
-        // Activation and waiting pages may be the first draw; the image
-        // parser sets rotation itself, but these pages use the initial state.
+        if (!photopainter_panel::initController(display_.native())) {
+            Log.errorln("[PhotoPainter] EPD init BUSY timeout");
+            powerOffPanel();
+            return;
+        }
+        display_.native().wake(); // synchronize Seeed_GFX initial sleep flag
+        display_.native().sleep(); // POWER_OFF + BUSY, before ALDO3 off
+        if (!powerOffPanel()) return;
         display_.native().setRotation(display_.rotation());
-        Log.infoln("[PhotoPainter] ED2208 initialized and controller powered off");
+        display_ready_ = true;
+        Log.infoln("[PhotoPainter] ED2208 initialized; EPD_VCC off");
     }
 
-    void PrepareForDeepSleep() override {
+    bool RefreshDisplay() override {
+        if (!display_ready_ || !pmic_ready_) return false;
+        if (rail_on_ && !powerOffPanel()) return false;
+        rail_guard_.arm();
+        if (!photopainter_panel::railOn(pmic_)) {
+            Log.errorln("[PhotoPainter] Cannot enable EPD_VCC for refresh");
+            powerOffPanel();
+            return false;
+        }
+        rail_on_ = true;
+        if (!photopainter_panel::initController(display_.native())) {
+            Log.errorln("[PhotoPainter] EPD reinit BUSY timeout");
+            powerOffPanel();
+            return false;
+        }
+        // Reuse Seeed_GFX framebuffer transfer, refresh/BUSY, POWER_OFF/BUSY.
+        display_.native().update();
+        return powerOffPanel();
+    }
+
+    bool PrepareForDeepSleep() override {
         // Seeed_GFX ED2208 sleep() is idempotent and sends 0x02/BUSY
         // if the last display operation left the controller awake.
-        display_.native().sleep();
+        if (rail_on_) {
+            display_.native().sleep();
+        }
+        if (!powerOffPanel()) return false;
         // Waveshare Basic_mode uses GPIO0/4 as active-low EXT1 sources and
         // enables RTC pull-up on GPIO4. The common init path can return early
         // on low battery, so configure wakeup here as well.
@@ -100,6 +152,7 @@ public:
         while (boot_.isPressed() || key_.isPressed()) {
             delay(50);
         }
+        return true;
     }
 
     bool ReadPowerStatus(BoardPowerStatus& status) override {
@@ -134,13 +187,32 @@ public:
     EPaper& GetDisplay() override { return display_.native(); }
 
 private:
+    bool powerOffPanel() {
+        if (!pmic_ready_) return false;
+        if (!photopainter_panel::railOff(pmic_)) {
+            // Covers a failed deep-sleep check even if the last refresh was
+            // already marked off; keep retrying instead of trusting a flag.
+            if (guard_ready_) rail_guard_.arm();
+            Log.errorln("[PhotoPainter] Failed to disable ALDO3 / EPD_VCC; restarting");
+            esp_restart(); // never continue into networking/idle/deep sleep
+            return false;
+        }
+        rail_on_ = false;
+        rail_guard_.disarm();
+        return true;
+    }
+
     Led led_;
     Button boot_;
     Button key_;
     Button power_;
     EpaperDisplay display_;
     XPowersPMU pmic_;
+    photopainter_panel::PanelPowerGuard rail_guard_;
+    bool guard_ready_ = false;
     bool pmic_ready_ = false;
+    bool display_ready_ = false;
+    bool rail_on_ = false;
 };
 
 }  // namespace

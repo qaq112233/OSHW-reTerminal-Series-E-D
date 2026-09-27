@@ -48,7 +48,7 @@ public:
     Button* button(size_t index);
     bool buttonIsPressed(size_t index);
     void enableButtonWakeup();
-    void prepareForDeepSleep();
+    bool prepareForDeepSleep();
     bool buzzerBeep(uint32_t frequency_hz, uint32_t duration_ms);
     void buzzerStop();
 
@@ -84,6 +84,7 @@ public:
     void touchEnableWakeup();
 
     EPaper& display();
+    bool displayUpdate();
     EpaperDisplay* epaperDisplay();
     WakeupClick wakeupReason() const;
 
