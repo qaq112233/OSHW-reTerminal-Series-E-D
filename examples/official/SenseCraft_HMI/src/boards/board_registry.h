@@ -58,7 +58,7 @@ namespace board_registry
     namespace detail
     {
         constexpr BoardProfile kBoardProfiles[] = {
-            {BoardModel::PhotoPainter, "PhotoPainter", "photopainter", "PhotoPainter", "PhotoPainter", "PhotoPainter", 524},
+            {BoardModel::PhotoPainter, "PhotoPainter", "photopainter", "PhotoPainter", "PhotoPainter", "PhotoPainter", 521},
             {BoardModel::ReTerminalE1001, "reTerminal", "e1001", "reTerminal E1001", "E1001", "reTerminal E1001", 520},
             {BoardModel::ReTerminalE1002, "reTerminal", "e1002", "reTerminal E1002", "E1002", "reTerminal E1002", 521},
             {BoardModel::ReTerminalE1003, "reTerminal", "e1003", "reTerminal E1003", "E1003", "reTerminal E1003", 522},
@@ -73,7 +73,7 @@ namespace board_registry
         constexpr size_t kBoardProfileCount = sizeof(kBoardProfiles) / sizeof(kBoardProfiles[0]);
 
         constexpr BoardScreenEntry kBoardScreenTable[] = {
-            {BoardModel::PhotoPainter, 524, "xiao_diy_ee04", "7_3_color_800_480", "800x480", 800, 480, ScreenColor::Chromatic, {0, 1, 2, 3}},
+            {BoardModel::PhotoPainter, 521, "xiao_diy_ee04", "7_3_color_800_480", "800x480", 800, 480, ScreenColor::Chromatic, {0, 1, 2, 3}},
             {BoardModel::ReTerminalE1001, 520, "reterminal_e1001", "7_5_gray4_800_480", "800x480", 800, 480, ScreenColor::Mono, {0, 1, 2, 3}},
             {BoardModel::ReTerminalE1002, 521, "reterminal_e1002", "7_3_color_800_480", "800x480", 800, 480, ScreenColor::Chromatic, {0, 1, 2, 3}},
             {BoardModel::ReTerminalE1003, 522, "reterminal_e1003", "10_3_gray16_1872_1404", "1872x1404", 1872, 1404, ScreenColor::Mono, {0, 1, 2, 3}},

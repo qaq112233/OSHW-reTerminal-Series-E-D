@@ -16,7 +16,7 @@ void drawWaitingScreen(EPaper& display, uint16_t fg_color, uint16_t bg_color)
 #if (BOARD_SCREEN_COMBO == 520)
     display.drawBitmap(0, 0, e1001, display.width(), display.height(), TFT_WHITE, TFT_BLACK);
     display.update();
-#elif (BOARD_SCREEN_COMBO == 521) || (BOARD_SCREEN_COMBO == 524)
+#elif (BOARD_SCREEN_COMBO == 521)
     display.pushImage(0, 0, display.width(), display.height(), (uint16_t*)e1002);
     display.update();
 #elif (BOARD_SCREEN_COMBO == 522)

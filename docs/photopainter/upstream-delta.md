@@ -9,10 +9,10 @@ PhotoPainter fork 引入前的提交。移植应以 Seeed 的应用为主体；
 | Seeed 原文件 | 变更 | 原因与影响 |
 |---|---|---|
 | `examples/official/SenseCraft_HMI/platformio.ini` | 增加独立 `waveshare_photopainter` 环境 | 16 MB Flash / 8 MB Octal PSRAM；ED2208 六色 800×480 与独立 GPIO 设置；不影响其他构建环境。 |
-| `examples/official/SenseCraft_HMI/src/driver.h` | 注册 combo 524 | 不重用 Seeed E1002 的设备身份；显示驱动仍使用官方 Seeed_GFX ED2208。 |
+| `examples/official/SenseCraft_HMI/src/driver.h` | 注册 ED2208 combo 521（后续差异修正） | 复用 Seeed E1002 的 800×480 横屏 UI；板型和云端别名仍在 registry 独立维护。 |
 | `examples/official/SenseCraft_HMI/src/boards/board_registry.h` | 增加 PhotoPainter profile 与屏幕 | 在原有 Board 注册点增加独立设备身份；仅新宏生效。 |
-| `examples/official/SenseCraft_HMI/src/boards/common/screen_assets.cpp` | 新 combo 复用 E1002 六色等待图 | 仅资源选择；无 APP 分支。 |
-| `examples/official/SenseCraft_HMI/src/resources/pages/e1002_epd.h` | 将新 combo 加入旧有六色资源条件 | 避免复制 800×480 图；仅编译资源条件改变。 |
+| `examples/official/SenseCraft_HMI/src/boards/common/screen_assets.cpp` | 复用现有 E1002 六色等待图 | 仅资源选择；无 APP 分支。 |
+| `examples/official/SenseCraft_HMI/src/resources/pages/e1002_epd.h` | 撤销临时 combo 524 的资源条件扩展 | 避免复制 800×480 图；仅编译资源条件改变。 |
 
 新增 `src/boards/waveshare_photopainter/{config.h,waveshare_photopainter.cpp}`：
 独立薄 Board，参考 Waveshare GPIO。启动时检查 PMIC I2C 地址（**不是完整 PMIC 驱动**）；
@@ -39,3 +39,25 @@ PhotoPainter 身份。这是协议兼容别名，**不意味着运行在 XIAO �
 不修改 `app_sensecraft.cpp`、`app_download.cpp`、`app_view.cpp`。
 固件构建通过只表示编译接入；Pair、MQTT、Manifest、图片下载和真机显示
 仍需连接硬件与实际账号验证。
+
+## 阶段 5：显示方向、唤醒与定时休眠差异修正
+
+- `platformio.ini`、`driver.h`、`boards/board_registry.h`：PhotoPainter 使用现有
+  `521` ED2208 横屏布局，避免 `524` 遗漏上游已有的组合号分支；registry
+  仍上报 `xiao_diy_ee04`。Waveshare 示例的默认 rotation 0 对应横向
+  800×480；物理朝向和左右镜像仍待实物验证。
+- `boards/common/screen_assets.cpp`、`resources/pages/e1002_epd.h`：撤销阶段 2
+  为 `524` 临时增加的两处等待图资源条件。
+- `boards/common/button.h`、`hal/hal.cpp`：EXT1 ANY_LOW 唤醒掩码仅含低有效
+  按键；PhotoPainter 的 GPIO5 PWR 为高有效，不再错误加入。
+- `boards/common/board.h`、`hal/hal.{h,cpp}`、`APP/app_device_info.cpp`：新增
+  板级 Deep Sleep 前钩子，在共享 SPI 锁内运行；PhotoPainter 钩子调用
+  Seeed_GFX `sleep()`，确保驱动认为仍醒着时执行 POWER_OFF/BUSY。
+  此钩子不能证明物理供电 rail 断开；BUSY 无限等待仍需真机验证。
+- `boards/common/sleep_schedule.h`、`APP/app_device_info.cpp`：修复短刷新周期
+  减去 20 秒导致无符号下溢，最少休眠 1 秒。
+- `tests/photopainter_registry.cpp`、`tests/photopainter_sleep_schedule.cpp`：
+  更新组合号断言并覆盖边界周期。
+
+软件验证：两个 PhotoPainter 构建目标、两个主机测试以及 `git diff --check`。
+不代表唤醒、功耗、BUSY 和云端端到端的真机验收。

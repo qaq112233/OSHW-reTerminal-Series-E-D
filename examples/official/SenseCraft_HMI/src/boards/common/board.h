@@ -30,6 +30,7 @@ public:
     virtual void SetDebugOutput(bool) {}
     virtual void InitEarlyHardware() {}
     virtual void InitHardware() {}
+    virtual void PrepareForDeepSleep() {}
 
     virtual const board_registry::BoardProfile& GetProfile() const { return board_registry::current_board(); }
     virtual const board_registry::BoardScreenEntry& GetScreen() const { return board_registry::current_board_screen(); }

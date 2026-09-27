@@ -50,6 +50,12 @@ public:
         Log.infoln("[PhotoPainter] ED2208 initialized and controller powered off");
     }
 
+    void PrepareForDeepSleep() override {
+        // Seeed_GFX ED2208 sleep() is idempotent and sends 0x02/BUSY
+        // if the last display operation left the controller awake.
+        display_.native().sleep();
+    }
+
     Led* GetLed() override { return &led_; }
     Button* GetButton(size_t index) override {
         switch (index) {

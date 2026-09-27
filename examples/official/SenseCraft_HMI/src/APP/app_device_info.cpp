@@ -5,6 +5,7 @@
 #include "APP/app_user_action.h"
 #include "APP/app_view.h"
 #include "hal/hal.h"
+#include "boards/common/sleep_schedule.h"
 #include "hal/hal_indicator.h"
 
 #include <Preferences.h>
@@ -720,7 +721,7 @@ void EnterDeepSleep()
     {
         uint32_t _sleep_interval;
         nvs_get_sleep_interval(_sleep_interval);
-        wakeup_sleep_seconds = static_cast<uint64_t>(_sleep_interval - 20);
+        wakeup_sleep_seconds = sleep_schedule::wakeup_delay_seconds(_sleep_interval);
     }
     else
     {
@@ -745,7 +746,7 @@ void EnterDeepSleep()
             }
             else
             {
-                wakeup_sleep_seconds = static_cast<uint64_t>(_sleep_interval - 20);
+                wakeup_sleep_seconds = sleep_schedule::wakeup_delay_seconds(_sleep_interval);
             }
         }
     }
@@ -757,6 +758,18 @@ void EnterDeepSleep()
     {
         Log.infoln("[app_device_info] Deep sleep cancelled by power owner mask=0x%08x",
                    app_power_manager_owner_mask());
+        deep_sleep_pending.store(false);
+        return;
+    }
+    // Let the board finish its controller power-off/BUSY sequence before sleep.
+    // The SPI lock serializes this with other display/SD activity.
+    {
+        HAL::SharedSpiLock spi_lock;
+        HAL::GetHAL().prepareForDeepSleep();
+    }
+    if (app_power_manager_has_blocker())
+    {
+        Log.infoln("[app_device_info] Deep sleep cancelled after display shutdown.");
         deep_sleep_pending.store(false);
         return;
     }

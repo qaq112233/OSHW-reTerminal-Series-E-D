@@ -246,12 +246,19 @@ bool Hal::buttonIsPressed(size_t index)
     return btn && btn->isPressed();
 }
 
+void Hal::prepareForDeepSleep()
+{
+    Board::GetInstance().PrepareForDeepSleep();
+}
+
 void Hal::enableButtonWakeup()
 {
     uint64_t mask = 0;
     for (size_t i = 0; i < 3; ++i) {
         auto* btn = button(i);
-        if (btn) {
+        // EXT1 ANY_LOW is only valid for buttons whose active level is LOW.
+        // PhotoPainter PWR (GPIO5) is active HIGH and would wake immediately.
+        if (btn && btn->activeLow()) {
             mask |= (1ULL << btn->pin());
         }
     }

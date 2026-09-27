@@ -8,6 +8,7 @@ public:
     Button(int pin, bool active_low = true);
 
     int pin() const { return pin_; }
+    bool activeLow() const { return active_low_; }
     bool isPressed() const;
 
     void init();
