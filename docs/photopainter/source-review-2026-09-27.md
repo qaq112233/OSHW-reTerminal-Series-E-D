@@ -17,9 +17,9 @@
 
 无实物，**不能**宣称六色光学正确、装机朝向、EPD BUSY 电平、控制器
 POWER_OFF 后物理 `EPD_VCC` 已断、真实电流、按键唤醒、PMIC 量测、
-Wi-Fi/MQTT/下载/深睡完整运行。V2 原理图尚未取得；若需判断 EPD_VCC
-和 ALDO/Q2 的具体网络，请提供对应硬件版本的 Waveshare V2 schematic PDF
-或官方 Resources-And-Documents 页导出的 `.md`，不能猜测。
+Wi-Fi/MQTT/下载/深睡完整运行。用户提供的原理图为 V1，已确认 V1 的 ALDO3→EPD_VCC→屏幕 VDD；
+但 V2 原理图仍未取得，且实物板级版本未知。若需对 V2 实现 EPD_VCC
+物理开关，请提供 Waveshare V2 schematic PDF，不能从 V1 网络猜测。
 
 ## 回归方法
 

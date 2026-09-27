@@ -47,7 +47,8 @@ public:
         } else {
             // Mirror Waveshare power_bsp.cpp's register configuration.
             // Voltage selection does not imply enabling or disabling a rail;
-            // the EPD power-domain mapping still needs the board schematic.
+            // V1 schematic maps ALDO3 to EPD_VCC; V2 and the actual board
+            // revision remain unverified, so do not toggle that rail here.
             if (pmic_.getDC1Voltage() != 3300) pmic_.setDC1Voltage(3300);
             if (pmic_.getALDO1Voltage() != 3300) pmic_.setALDO1Voltage(3300);
             if (pmic_.getALDO2Voltage() != 3300) pmic_.setALDO2Voltage(3300);

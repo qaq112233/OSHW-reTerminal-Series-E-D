@@ -143,3 +143,14 @@ PMIC 寄存器状态位、是否插电、锂电百分比与电压的读法与 XP
 四舍五入成 `0`，导致 AXP2101 无电池或读数暂时失败时错误提示低电量。
 这是通用有效性修复，不含 PhotoPainter 型号分支；其他低电量停机逻辑
 原已检查无效读数。主机/构建验证不等于 PMIC 实机精度验证。
+
+## 阶段 12：用户提供的 V1 图纸核对
+
+- `hardware.md` / `source-review-2026-09-27.md`：据本地 Altium PDF 和中文
+  Resources-And-Documents 页，确认文件属于 V1 资料；在 V1 上，AXP2101
+  ALDO3（pin 16）→ `EPD_VCC` → 屏幕 J1 VDD（pin 38），同网络连接 EPD
+  驱动升压电路。`0x02 POWER_OFF` 不能代替 PMIC ALDO3 断电；此前“未知哪路
+  ALDO”只对 V2/未知实物版本成立。
+- PhotoPainter Board 仅更新注释：没有更改 PMIC 运行行为，也没有在未知板版
+  上擅自关闭 ALDO3。V2 官方 PDF 链接直连仍返回验证 HTML，虽可读中文目录，
+  但目录内容不能代替原理图；需 V2 PDF 或实物版本确认后再设计物理开关。

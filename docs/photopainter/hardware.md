@@ -15,7 +15,7 @@
   `https://files.waveshare.com/wiki/ESP32-S3-PhotoPainter/ESP32-S3-PhotoPainter-Schematic.pdf`
 - 官方新版资料页（读取日期 2026-09-27，分别列出 V1、V2 原理图）：
   `https://docs.waveshare.net/ESP32-S3-PhotoPainter/Resources-And-Documents`
-- 资料页列出的 V2 原理图（本次访问被验证页拦截，**未读取到 PDF**）：
+- 资料页列出的 V2 原理图（直连返回验证 HTML，**未读取到 PDF**）：
   `https://www.waveshare.net/w/upload/a/ae/ESP32-S3-PhotoPainter-Schematic-v2.0.pdf`
 - 官方显示屏手册：
   `https://files.waveshare.com/wiki/7.3inch-e-Paper-HAT-(E)/7.3inch-e-Paper-(E)-user-manual.pdf`
@@ -50,7 +50,9 @@
 
 已确认：
 
-- 此前对**旧版 V1 原理图**的记录包含 `EPD_VCC`、驱动开关/升压电路和 `Q2 AO3401`；尚未确认用户实物属于哪个硬件版本，也未核对 V2 网络。
+- 用户提供的 `/mnt/c/Users/QAQ/Desktop/ESP32-S3-PhotoPainter-Schematic.pdf` 为与资料页 V1 同名且同大小（1,251,764 字节）的单页 Altium 原理图；其 PDF 创建日期为 2025-10-20，SHA-256 为 `82472764688ed346dcb264a71b0260bb74de4efa6fc8843f8da0417e9f99c6ec`。这是 **V1 资料**，不是 V2。尚未确认用户实物的板级版本。
+- **V1 图纸可直接沿网络追踪**：AXP2101 的 ALDO3 引脚 16 输出 `EPD_VCC`；屏幕连接器 J1 的 VDD 引脚 38 接 `EPD_VCC`，同网络还供给面板驱动升压电路 Q1/Q2（AO3400/AO3401）及相关电容。`VCC3V3` 为另一条主电源，不应与 `EPD_VCC` 混同。
+- 现有 Waveshare `power_bsp.cpp::Custom_PmicRegisterInit()` 和本移植均只将 ALDO3 目标电压设为 3300 mV，**没有**调用 `disableALDO3()`。Seeed_GFX/Waveshare 的 `0x02 POWER_OFF` 不是 AXP2101 ALDO3 的开关命令；即便刷新完成，它也不能证明 V1 的物理 `EPD_VCC` 已断。
 - 已记录的 V1 原理图把 `SYS_OUT` 与 `GP5` 相连；源码同时把 GPIO5 配置为 PWR 按键。**不能据此把 GPIO5 当作 EPD 电源开关。**
 - 当前应用源码的刷新路径为：写显示 RAM -> `0x04` POWER_ON -> BUSY 等待
   -> `0x12` DISPLAY_REFRESH -> BUSY 等待 -> `0x02` POWER_OFF -> BUSY 等待
@@ -76,7 +78,7 @@
   `:149-168` 的正常刷新末尾发送 `0x02` 并等待 BUSY。实现与测试应覆盖
   失败、重启、Deep Sleep 路径，不把“驱动返回”等同于物理掉电。
 - `components/pmicpower/power_bsp.cpp:84-100` 设置 ALDO1–4 为 3300 mV，
-  但没有说明哪个驱动 EPD；不得猜测后关闭任一 ALDO。
+  现在 V1 图纸已证实 ALDO3 输出 `EPD_VCC`；V2 网络尚未读取到，不能将 V1 结论外推。
 - Seeed `src/boards/common/epaper_display.cpp` 在 `begin()` 中直接调用
   `display_.begin()`；`src/APP/app_view.cpp` 与 `src/boards/common/screen_assets.cpp`
   有多处 `EPaper::update()`。必须检查当前 Seeed_GFX 驱动能否在所有刷新结束时
@@ -84,8 +86,7 @@
 
 ## TODO / 待确认
 
-- `EPD_VCC` 的完整使能/关断条件：需先确定实际硬件 V1/V2，并结合**对应版本**原理图网络 `Q2 AO3401`、`SYS_OUT`、
-  `GP5` 和 PMIC 寄存器确认，当前不把“GPIO5 即 EPD rail 开关”作为结论。
+- `EPD_VCC` 的完整物理关断方案：V1 证实由 AXP2101 ALDO3 供电；先确定实物板级版本并取得 V2 原理图、核对 V2 的 ALDO3 负载，才决定是否以板级开关控制 `EPD_VCC`。当前绝不把 GPIO5 当作 EPD rail 开关。
 - PMIC 型号表述差异：源码和原理图使用 `AXP2101`，官方产品页文字写作 `TG28`；两者
   的版本/封装/对应关系待向 Waveshare 资料确认。
 - 锂电接口名称差异：官方原理图标为 `PH1.25 2P`，官方产品页写作 `MX1.25 2PIN`；
@@ -94,7 +95,7 @@
 - 主板 Flash/PSRAM 的独立丝印与模组封装版本：产品页和 SDK 配置都支持 16 MB Flash /
   8 MB PSRAM，但原理图文本只出现 `WROOM-1/2`，未直接打印 `N16R8`。
 - 电池容量：官方产品页把 3.7 V 1500 mAh 列为可选，是否为实际随附电池需按订单确认。
-- 当前源码中未见 PCF85063 RTC 驱动代码；I2C 地址和具体寄存器访问方式待确认。
+- 当前源码中未见 PCF85063 RTC 驱动代码；V1 原理图标注 I2C 地址 `0x51`，具体寄存器访问方式和 V2 接线仍待核对。
 - SHTC3 是否与其他 I2C 设备共用同一总线及上拉/供电域：官方原理图已显示同网络，
   但最终 GPIO 映射需在移植板级定义中再次核对。
 - SD/TF 的最终运行模式：源码构造函数默认 width=4，也支持传入 1-bit；当前 application 的实际调用为 4-bit。
@@ -113,3 +114,11 @@ bit 3 辅助判断 USB 输入。电池电压/电量经芯片 ADC/fuel gauge 寄�
 读取，不是采用 Seeed 板的外部 ADC 分压曲线。
 
 第二轮静态审查的逐路径证据与未验证清单见 `source-review-2026-09-27.md`。
+
+### 用户提供 V1 原理图的适用边界（2026-09-27）
+
+中文资源页可访问并列出 V1、V2 两份图纸；V1 官方文件标称 1,251,764 字节，
+与用户本地 PDF 相同。V2 官方链接本次直连返回约 12 KB 的验证 HTML（尽管
+HEAD 自称 PDF、长度 2,102,659 字节），因此**未读取 V2 图纸**。不能据
+验证页或 V1 网络假装完成 V2 电源设计。V1 图纸只证实网络连接；ALDO3
+实际启用位、面板 VDD 关断后的电压/残余供电路径仍需真机测量。
