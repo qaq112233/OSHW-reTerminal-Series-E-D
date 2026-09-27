@@ -1,0 +1,4 @@
+[submodule "references/ESP32-S3-PhotoPainter"]
+	path = references/ESP32-S3-PhotoPainter
+	url = https://github.com/waveshareteam/ESP32-S3-PhotoPainter.git
+	branch = main

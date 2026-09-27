@@ -1,0 +1,15 @@
+# Emulator device identity (contains locally generated MAC)
+device.json
+
+# Downloaded cloud content and raw manifests
+downloads/
+
+# Python / uv
+__pycache__/
+.ruff_cache/
+*.py[cod]
+.venv/
+.python-version
+
+# Run logs
+*.log

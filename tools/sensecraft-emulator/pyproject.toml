@@ -1,0 +1,29 @@
+[project]
+name = "sensecraft-emulator"
+version = "0.1.0"
+description = "Python emulator of a Seeed SenseCraft HMI device (xiao_diy_ee04 + 7.3\" 800x480 color) for Pair/MQTT/Manifest/Image protocol validation"
+requires-python = ">=3.11"
+dependencies = [
+    "requests>=2.32",
+    "paho-mqtt>=2.1",
+    "certifi>=2025.1",
+]
+
+[project.scripts]
+sensecraft-emulator = "main:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+only-include = [
+    "main.py",
+    "protocol.py",
+    "device.py",
+    "bind.py",
+    "manifest.py",
+    "downloader.py",
+    "mqtt_client.py",
+    "decode_epd.py",
+]
