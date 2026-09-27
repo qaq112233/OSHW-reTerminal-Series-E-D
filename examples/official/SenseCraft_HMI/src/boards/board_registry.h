@@ -12,6 +12,7 @@ namespace board_registry
 {
     enum class BoardModel
     {
+        PhotoPainter,
         ReTerminalE1001,
         ReTerminalE1002,
         ReTerminalE1003,
@@ -57,6 +58,7 @@ namespace board_registry
     namespace detail
     {
         constexpr BoardProfile kBoardProfiles[] = {
+            {BoardModel::PhotoPainter, "PhotoPainter", "photopainter", "PhotoPainter", "PhotoPainter", "PhotoPainter", 524},
             {BoardModel::ReTerminalE1001, "reTerminal", "e1001", "reTerminal E1001", "E1001", "reTerminal E1001", 520},
             {BoardModel::ReTerminalE1002, "reTerminal", "e1002", "reTerminal E1002", "E1002", "reTerminal E1002", 521},
             {BoardModel::ReTerminalE1003, "reTerminal", "e1003", "reTerminal E1003", "E1003", "reTerminal E1003", 522},
@@ -71,6 +73,7 @@ namespace board_registry
         constexpr size_t kBoardProfileCount = sizeof(kBoardProfiles) / sizeof(kBoardProfiles[0]);
 
         constexpr BoardScreenEntry kBoardScreenTable[] = {
+            {BoardModel::PhotoPainter, 524, "waveshare_photopainter", "7_3_color_800_480", "800x480", 800, 480, ScreenColor::Chromatic, {0, 1, 2, 3}},
             {BoardModel::ReTerminalE1001, 520, "reterminal_e1001", "7_5_gray4_800_480", "800x480", 800, 480, ScreenColor::Mono, {0, 1, 2, 3}},
             {BoardModel::ReTerminalE1002, 521, "reterminal_e1002", "7_3_color_800_480", "800x480", 800, 480, ScreenColor::Chromatic, {0, 1, 2, 3}},
             {BoardModel::ReTerminalE1003, 522, "reterminal_e1003", "10_3_gray16_1872_1404", "1872x1404", 1872, 1404, ScreenColor::Mono, {0, 1, 2, 3}},
@@ -102,7 +105,9 @@ namespace board_registry
 
         constexpr size_t kBoardScreenCount = sizeof(kBoardScreenTable) / sizeof(kBoardScreenTable[0]);
 
-#if defined(USE_XIAO_EPAPER_DISPLAY_BOARD_EE02)
+#if defined(BOARD_WAVESHARE_PHOTOPAINTER)
+        constexpr BoardModel kDetectedModel = BoardModel::PhotoPainter;
+#elif defined(USE_XIAO_EPAPER_DISPLAY_BOARD_EE02)
         constexpr BoardModel kDetectedModel = BoardModel::XiaoDiyEE02;
 #elif defined(USE_XIAO_EPAPER_DISPLAY_BOARD_EE03)
         constexpr BoardModel kDetectedModel = BoardModel::XiaoDiyEE03;

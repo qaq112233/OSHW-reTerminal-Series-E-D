@@ -4,7 +4,11 @@
     #define BOARD_XIAO_DIY_ANY
 #endif
 
-#ifdef BOARD_SEEED_RETERMINAL_E1001
+#if defined(BOARD_WAVESHARE_PHOTOPAINTER)
+    #ifndef BOARD_SCREEN_COMBO
+        #define BOARD_SCREEN_COMBO 524 // PhotoPainter ED2208, 800x480 Spectra 6
+    #endif
+#elif defined(BOARD_SEEED_RETERMINAL_E1001)
     #define BOARD_SCREEN_COMBO 520 // reTerminal E1001 （UC8179）
 #elif defined(BOARD_SEEED_RETERMINAL_E1002)
     #define BOARD_SCREEN_COMBO 521 // reTerminal E1002 （ED2208）
