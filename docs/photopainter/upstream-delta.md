@@ -119,3 +119,19 @@ Arduino `init(Wire, SDA, SCL, 0x34)` 自身调用 `Wire.begin()`；移除板级�
 ALDO1–4 的 3300 mV 设置；**只设定电压，不启停未知电源 rail**。
 PMIC 寄存器状态位、是否插电、锂电百分比与电压的读法与 XPowersLib
 一致，但芯片响应及各电源域的实际连接仍需实物与对应版本原理图验收。
+
+## 阶段 10：源码审查后修正首次朝向与休眠按键
+
+- `boards/waveshare_photopainter/waveshare_photopainter.cpp`：显示初始化并按
+  `POWER_OFF/BUSY` 关控制器后，给 EPaper 的缓冲区设置板级 rotation 2。
+  图片解码器会自行设置该 rotation，但首次配对/激活页面并不保证调用
+  解码器；避免第一次刷新沿用 Seeed_GFX 默认 rotation 0。
+- 同文件的 Deep Sleep 钩子：在控制器关电后，按 Waveshare Basic_mode
+  设置 GPIO0/GPIO4 的低有效 EXT1 唤醒与 GPIO4 RTC 上拉，并等两个按键
+  松开；这一配置即使 `DeviceInfoInit()` 因低电量提前返回仍会执行。
+  保留通用 HAL 已有按键唤醒逻辑，不把高有效 GPIO5 加入 ANY_LOW。
+- `tests/photopainter_color_contract.py`：从本地固定依赖 Seeed_GFX 与
+  Waveshare reference 抽取六色索引，若模拟器下载样本存在也核验真实
+  EPD0 头、尺寸、解压长度及索引。无需复制显示驱动。
+
+这是源码契约与 clean build，不是实机装机方向、按键唤醒、电流或物理 rail 验收。

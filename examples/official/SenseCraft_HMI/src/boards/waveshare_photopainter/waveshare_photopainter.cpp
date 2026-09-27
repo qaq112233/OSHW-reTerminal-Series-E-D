@@ -5,6 +5,8 @@
 #include "boards/waveshare_photopainter/axp2101_status.h"
 
 #include <Wire.h>
+#include <esp_sleep.h>
+#include <driver/rtc_io.h>
 #define XPOWERS_CHIP_AXP2101
 #include <XPowersLib.h>
 #include "ArduinoLog.h"
@@ -70,6 +72,9 @@ public:
         display_.native().writedata(0x03);
         display_.native().wake();
         display_.native().sleep();
+        // Activation and waiting pages may be the first draw; the image
+        // parser sets rotation itself, but these pages use the initial state.
+        display_.native().setRotation(display_.rotation());
         Log.infoln("[PhotoPainter] ED2208 initialized and controller powered off");
     }
 
@@ -77,6 +82,23 @@ public:
         // Seeed_GFX ED2208 sleep() is idempotent and sends 0x02/BUSY
         // if the last display operation left the controller awake.
         display_.native().sleep();
+        // Waveshare Basic_mode uses GPIO0/4 as active-low EXT1 sources and
+        // enables RTC pull-up on GPIO4. The common init path can return early
+        // on low battery, so configure wakeup here as well.
+        constexpr uint64_t mask = (1ULL << PHOTOPAINTER_BOOT_BUTTON) |
+                                  (1ULL << PHOTOPAINTER_KEY_BUTTON);
+        esp_err_t err = esp_sleep_enable_ext1_wakeup(mask, ESP_EXT1_WAKEUP_ANY_LOW);
+        if (err != ESP_OK) {
+            Log.errorln("[PhotoPainter] EXT1 wakeup configuration failed: %d", err);
+        }
+        rtc_gpio_pulldown_dis(static_cast<gpio_num_t>(PHOTOPAINTER_KEY_BUTTON));
+        rtc_gpio_pullup_en(static_cast<gpio_num_t>(PHOTOPAINTER_KEY_BUTTON));
+        // A held wake key causes an immediate wake-loop with ANY_LOW.
+        // Wait for both inputs to be released, matching Waveshare's BOOT
+        // release wait, with the panel already POWER_OFF/BUSY complete.
+        while (boot_.isPressed() || key_.isPressed()) {
+            delay(50);
+        }
     }
 
     bool ReadPowerStatus(BoardPowerStatus& status) override {
