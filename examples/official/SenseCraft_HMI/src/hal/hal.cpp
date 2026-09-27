@@ -357,18 +357,24 @@ uint64_t Hal::sdUsedBytes()
 
 bool Hal::batteryIsInserted()
 {
+    BoardPowerStatus status;
+    if (Board::GetInstance().ReadPowerStatus(status)) return status.battery_connected;
     auto* battery = Board::GetInstance().GetBattery();
     return battery && battery->isInserted(pmicIsBatteryConnected());
 }
 
 bool Hal::batteryIsConnected()
 {
+    BoardPowerStatus status;
+    if (Board::GetInstance().ReadPowerStatus(status)) return status.battery_connected;
     auto* battery = Board::GetInstance().GetBattery();
     return battery && battery->isConnected(pmicIsBatteryConnected());
 }
 
 float Hal::batteryReadVoltage()
 {
+    BoardPowerStatus status;
+    if (Board::GetInstance().ReadPowerStatus(status)) return status.battery_voltage;
     auto* battery = Board::GetInstance().GetBattery();
     if (!battery) {
         return NO_BATTERY_DETECTED_VALUE;
@@ -378,6 +384,8 @@ float Hal::batteryReadVoltage()
 
 float Hal::batteryReadPercent()
 {
+    BoardPowerStatus status;
+    if (Board::GetInstance().ReadPowerStatus(status)) return status.battery_percent;
     auto* battery = Board::GetInstance().GetBattery();
     if (!battery) {
         return NO_BATTERY_DETECTED_VALUE;
@@ -387,12 +395,16 @@ float Hal::batteryReadPercent()
 
 bool Hal::pmicIsCharging()
 {
+    BoardPowerStatus status;
+    if (Board::GetInstance().ReadPowerStatus(status)) return status.charging;
     auto* pmic = Board::GetInstance().GetPmic();
     return pmic && pmic->isCharging();
 }
 
 bool Hal::pmicIsBatteryConnected()
 {
+    BoardPowerStatus status;
+    if (Board::GetInstance().ReadPowerStatus(status)) return status.battery_connected;
     auto* pmic = Board::GetInstance().GetPmic();
     return !pmic || pmic->isBatteryConnected();
 }

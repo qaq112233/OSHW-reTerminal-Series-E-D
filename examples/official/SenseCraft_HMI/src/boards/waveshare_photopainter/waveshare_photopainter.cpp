@@ -2,8 +2,11 @@
 
 #include "boards/common/board.h"
 #include "boards/waveshare_photopainter/config.h"
+#include "boards/waveshare_photopainter/axp2101_status.h"
 
 #include <Wire.h>
+#define XPOWERS_CHIP_AXP2101
+#include <XPowersLib.h>
 #include "ArduinoLog.h"
 #include "TFT_eSPI.h"
 
@@ -35,9 +38,19 @@ public:
     void InitHardware() override {
         Wire.begin(PHOTOPAINTER_PMIC_SDA, PHOTOPAINTER_PMIC_SCL);
         Wire.setClock(100000);
-        Wire.beginTransmission(PHOTOPAINTER_PMIC_ADDRESS);
-        if (Wire.endTransmission() != 0) {
-            Log.warningln("[PhotoPainter] AXP2101 not detected at 0x34");
+        pmic_ready_ = pmic_.init(Wire, PHOTOPAINTER_PMIC_SDA,
+                                 PHOTOPAINTER_PMIC_SCL, PHOTOPAINTER_PMIC_ADDRESS);
+        if (!pmic_ready_) {
+            Log.warningln("[PhotoPainter] AXP2101 init failed; power status unavailable");
+        } else {
+            // Charger parameters mirror Waveshare power_bsp.cpp. Do not
+            // toggle ALDO rails without a verified EPD power mapping.
+            pmic_.setVbusCurrentLimit(XPOWERS_AXP2101_VBUS_CUR_LIM_2000MA);
+            pmic_.setPrechargeCurr(XPOWERS_AXP2101_PRECHARGE_50MA);
+            pmic_.setChargerConstantCurr(XPOWERS_AXP2101_CHG_CUR_500MA);
+            pmic_.setChargerTerminationCurr(XPOWERS_AXP2101_CHG_ITERM_25MA);
+            pmic_.enableBattDetection();
+            pmic_.enableBattVoltageMeasure();
         }
 
         // Seeed_GFX ED2208 init sends POWER_ON (0x04). Its EPaper object
@@ -54,6 +67,25 @@ public:
         // Seeed_GFX ED2208 sleep() is idempotent and sends 0x02/BUSY
         // if the last display operation left the controller awake.
         display_.native().sleep();
+    }
+
+    bool ReadPowerStatus(BoardPowerStatus& status) override {
+        if (!pmic_ready_) return false;
+        // XPowersLib follows the same AXP2101 status/battery registers as
+        // Waveshare. Guard failed I2C reads before interpreting any bits.
+        const int battery = pmic_.readRegister(XPOWERS_AXP2101_STATUS1);
+        const int power = pmic_.readRegister(XPOWERS_AXP2101_STATUS2);
+        if (battery < 0 || power < 0) return false;
+        status.battery_connected = photopainter_axp2101::battery_connected(battery);
+        status.charging = photopainter_axp2101::charging_or_external_power(battery, power);
+        if (status.battery_connected) {
+            const int percent = pmic_.getBatteryPercent();
+            const uint16_t millivolts = pmic_.getBattVoltage();
+            if (percent >= 0 && percent <= 100) status.battery_percent = percent;
+            if (millivolts >= 2500 && millivolts <= 5000)
+                status.battery_voltage = millivolts / 1000.0f;
+        }
+        return true;
     }
 
     Led* GetLed() override { return &led_; }
@@ -74,6 +106,8 @@ private:
     Button key_;
     Button power_;
     EpaperDisplay display_;
+    XPowersPMU pmic_;
+    bool pmic_ready_ = false;
 };
 
 }  // namespace

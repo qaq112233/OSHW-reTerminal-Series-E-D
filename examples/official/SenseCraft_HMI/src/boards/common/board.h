@@ -17,6 +17,14 @@
 
 class EPaper;
 
+// Optional PMIC-native readings for boards without the Seeed SY6974/ADC pair.
+struct BoardPowerStatus {
+    bool charging = false;
+    bool battery_connected = false;
+    float battery_voltage = -1.0f;
+    float battery_percent = -1.0f;
+};
+
 void* create_board();
 
 class Board {
@@ -42,6 +50,7 @@ public:
     virtual SdCard* GetSdCard() { return nullptr; }
     virtual BatteryGauge* GetBattery() { return nullptr; }
     virtual PmicSy6974* GetPmic() { return nullptr; }
+    virtual bool ReadPowerStatus(BoardPowerStatus&) { return false; }
     virtual RtcPcf8563* GetRtc() { return nullptr; }
     virtual Sht40Sensor* GetEnv() { return nullptr; }
     virtual Gt911Touch* GetTouch() { return nullptr; }

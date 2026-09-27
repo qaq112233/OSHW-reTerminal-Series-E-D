@@ -18,7 +18,7 @@ PhotoPainter fork 引入前的提交。移植应以 Seeed 的应用为主体；
 独立薄 Board，参考 Waveshare GPIO。启动时检查 PMIC I2C 地址（**不是完整 PMIC 驱动**）；
 Seeed_GFX ED2208 初始化后立即同步状态并关控制器电源；每次 `update()`
 由 Seeed_GFX 完成唤醒/刷新/BUSY/`0x02`/BUSY。电气 rail 状态、按键极性与
-实际六色方向均待真机验证。尚不支持 SD、RTC、SHTC3、电池/充电、物理 rail 测量。
+实际六色方向均待真机验证。阶段 2 尚不支持 SD、RTC、SHTC3、电池/充电、物理 rail 测量；电池/充电见阶段 6。
 
 安全边界：官方 ED2208 驱动的 BUSY 等待没有超时；此阶段不修改 Seeed_GFX
 上游依赖，不宣称物理 rail 断电或异常条件安全性已通过。后续需要真机验证。
@@ -61,3 +61,21 @@ PhotoPainter 身份。这是协议兼容别名，**不意味着运行在 XIAO �
 
 软件验证：两个 PhotoPainter 构建目标、两个主机测试以及 `git diff --check`。
 不代表唤醒、功耗、BUSY 和云端端到端的真机验收。
+
+## 阶段 6：AXP2101 电源状态适配
+
+- `platformio.ini`：只给 PhotoPainter 主固件加入定版的 XPowersLib
+  (`d6997586e68f65afd51baa775903df930db39821`)；诊断目标不会调用 PMIC。
+- `boards/waveshare_photopainter/{waveshare_photopainter.cpp,axp2101_status.h}`：
+  使用 Waveshare 示例所用的 XPowers AXP2101，读取电池连接、充电/外部
+  供电、原始电压和电量；参照官方示例设置 USB 限流与充电电流，启用电池
+  检测/电压 ADC。**不推断或切换任何未知 ALDO 与 EPD rail。**
+- `boards/common/board.h`、`hal/hal.cpp`：提供可选的板级 PMIC 读数，
+  未实现该接口的 Seeed 板继续使用原有 SY6974 + ADC 行为。
+  此处沿用 Seeed `pmicIsCharging()` 的既有语义：外部电源有效或正在充电
+  都应阻止自动 Deep Sleep；与严格的 AXP2101 “充电阶段”不完全同义。
+- `tests/photopainter_axp2101_status.cpp`：主机测试 AXP2101 状态位，
+  包括 USB 输入、电池缺失以及电池放电边界。
+
+无实物，PMIC 芯片识别、I2C 状态、电池电量精度、USB 供电与低功耗行为
+均未得到实机验收。I2C 读取失败会返回不可用读数，不伪造电池数据。
