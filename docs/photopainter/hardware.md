@@ -100,3 +100,14 @@
 - SD/TF 的最终运行模式：源码构造函数默认 width=4，也支持传入 1-bit；当前 application 的实际调用为 4-bit。
 - 各休眠模式的精确电流、唤醒源去抖时间和异常掉电恢复策略：待实测。
 - EPD 刷新过程中断网、重启、看门狗复位后的恢复策略：待设计并实测。
+
+### PMIC 软件契约补充（2026-09-27）
+
+Waveshare `power_bsp.cpp` 主例程及 `05_ArduinoExample/01_Audio_Test/power_bsp.cpp`
+均设置 DCDC1、ALDO1–4 为 3300 mV，并设置 USB 输入限流 2000 mA、
+预充 50 mA、恒流充电 500 mA、终止 25 mA。当前 PhotoPainter Board
+使用定版 XPowersLib 复刻这些**寄存器配置**，没有据此推断 ALDO 的负载
+或调用任何 `enable/disablePowerOutput`。XPowersLib 的 AXP2101 STATUS1
+bit 3 为电池在位、bit 5 为 VBUS good；STATUS2 高 3 bit 指充/放电状态，
+bit 3 辅助判断 USB 输入。电池电压/电量经芯片 ADC/fuel gauge 寄存器
+读取，不是采用 Seeed 板的外部 ADC 分压曲线。

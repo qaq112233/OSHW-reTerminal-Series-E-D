@@ -36,15 +36,21 @@ public:
     }
 
     void InitHardware() override {
-        Wire.begin(PHOTOPAINTER_PMIC_SDA, PHOTOPAINTER_PMIC_SCL);
-        Wire.setClock(100000);
+        // XPowersLib::init() initializes Wire on the Waveshare pins.
         pmic_ready_ = pmic_.init(Wire, PHOTOPAINTER_PMIC_SDA,
                                  PHOTOPAINTER_PMIC_SCL, PHOTOPAINTER_PMIC_ADDRESS);
+        Wire.setClock(100000);
         if (!pmic_ready_) {
             Log.warningln("[PhotoPainter] AXP2101 init failed; power status unavailable");
         } else {
-            // Charger parameters mirror Waveshare power_bsp.cpp. Do not
-            // toggle ALDO rails without a verified EPD power mapping.
+            // Mirror Waveshare power_bsp.cpp's register configuration.
+            // Voltage selection does not imply enabling or disabling a rail;
+            // the EPD power-domain mapping still needs the board schematic.
+            if (pmic_.getDC1Voltage() != 3300) pmic_.setDC1Voltage(3300);
+            if (pmic_.getALDO1Voltage() != 3300) pmic_.setALDO1Voltage(3300);
+            if (pmic_.getALDO2Voltage() != 3300) pmic_.setALDO2Voltage(3300);
+            if (pmic_.getALDO3Voltage() != 3300) pmic_.setALDO3Voltage(3300);
+            if (pmic_.getALDO4Voltage() != 3300) pmic_.setALDO4Voltage(3300);
             pmic_.setVbusCurrentLimit(XPOWERS_AXP2101_VBUS_CUR_LIM_2000MA);
             pmic_.setPrechargeCurr(XPOWERS_AXP2101_PRECHARGE_50MA);
             pmic_.setChargerConstantCurr(XPOWERS_AXP2101_CHG_CUR_500MA);

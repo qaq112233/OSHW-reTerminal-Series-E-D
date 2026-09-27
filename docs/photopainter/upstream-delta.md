@@ -109,3 +109,13 @@ Seeed `MAP_COLOR6` 与 Seeed_GFX `TFT_BLACK/WHITE/RED/YELLOW/BLUE/GREEN`
 Waveshare `ColorBlack/White/Red/Yellow/Blue/Green` 的面板索引
 `0/1/3/2/5/6`。因此不需额外重排六色，但这只验证**编码一致**，
 不验证实物光学颜色、面板批次或最终装机方向。
+
+## 阶段 9：AXP2101 上电配置再核对
+
+`boards/waveshare_photopainter/waveshare_photopainter.cpp`：XPowersLib 的
+Arduino `init(Wire, SDA, SCL, 0x34)` 自身调用 `Wire.begin()`；移除板级重复
+调用，在初始化后设定 100 kHz。参照 Waveshare 主例程与 Arduino 示例
+`Custom_PmicRegisterInit()`，除了此前充电限流外，补齐 DCDC1 和
+ALDO1–4 的 3300 mV 设置；**只设定电压，不启停未知电源 rail**。
+PMIC 寄存器状态位、是否插电、锂电百分比与电压的读法与 XPowersLib
+一致，但芯片响应及各电源域的实际连接仍需实物与对应版本原理图验收。
