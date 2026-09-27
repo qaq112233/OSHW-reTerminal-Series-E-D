@@ -29,3 +29,13 @@ Seeed_GFX ED2208 初始化后立即同步状态并关控制器电源；每次 `u
 `src/boards/waveshare_photopainter/bringup.cpp`、`docs/photopainter/bringup.md`；
 没有改 SenseCraft APP、Seeed_GFX 或其他已有业务文件。诊断在每次
 `update()` 结束后才等待按键；真机验收仍待硬件。
+
+## 阶段 4：SenseCraft 云端链路编译接入
+
+`src/boards/board_registry.h` 中 PhotoPainter 的**云端上报** `board.type`
+设为 `xiao_diy_ee04`，与已验证的 Python emulator 六色 800×480
+配置一致；本地 `BoardModel` / `GetBoardType()` / 构建目标仍保持独立的
+PhotoPainter 身份。这是协议兼容别名，**不意味着运行在 XIAO 硬件上**。
+不修改 `app_sensecraft.cpp`、`app_download.cpp`、`app_view.cpp`。
+固件构建通过只表示编译接入；Pair、MQTT、Manifest、图片下载和真机显示
+仍需连接硬件与实际账号验证。
