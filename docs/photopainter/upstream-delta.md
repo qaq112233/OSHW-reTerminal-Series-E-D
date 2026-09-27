@@ -79,3 +79,11 @@ PhotoPainter 身份。这是协议兼容别名，**不意味着运行在 XIAO �
 
 无实物，PMIC 芯片识别、I2C 状态、电池电量精度、USB 供电与低功耗行为
 均未得到实机验收。I2C 读取失败会返回不可用读数，不伪造电池数据。
+
+## 阶段 7：Deep Sleep 最终显示锁
+
+`APP/app_device_info.cpp`：在最终 `app_power_manager_has_blocker()` 检查和
+`esp_deep_sleep_start()` 期间持续持有已有的共享 SPI/显示锁。阶段 5 的钩子
+虽已在锁内执行，但此前锁在 Deep Sleep 前释放，允许新显示操作插入；
+现在若被 blocker 取消，作用域析构会正常释放该锁。不修改云端应用逻辑。
+该改动缩小软件竞态窗口，**未经过并发实机压力与物理 rail 验证**。

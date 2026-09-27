@@ -761,12 +761,11 @@ void EnterDeepSleep()
         deep_sleep_pending.store(false);
         return;
     }
-    // Let the board finish its controller power-off/BUSY sequence before sleep.
-    // The SPI lock serializes this with other display/SD activity.
-    {
-        HAL::SharedSpiLock spi_lock;
-        HAL::GetHAL().prepareForDeepSleep();
-    }
+    // Keep the shared display/SPI lock across the final blocker check and
+    // esp_deep_sleep_start(): releasing it earlier allows another display
+    // refresh to begin after the board has completed POWER_OFF/BUSY.
+    HAL::SharedSpiLock spi_lock;
+    HAL::GetHAL().prepareForDeepSleep();
     if (app_power_manager_has_blocker())
     {
         Log.infoln("[app_device_info] Deep sleep cancelled after display shutdown.");
