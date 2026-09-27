@@ -22,3 +22,10 @@ Seeed_GFX ED2208 初始化后立即同步状态并关控制器电源；每次 `u
 
 安全边界：官方 ED2208 驱动的 BUSY 等待没有超时；此阶段不修改 Seeed_GFX
 上游依赖，不宣称物理 rail 断电或异常条件安全性已通过。后续需要真机验证。
+
+## 阶段 3：离线显示 Bring-up
+
+仅追加 `platformio.ini` 诊断目标和新增
+`src/boards/waveshare_photopainter/bringup.cpp`、`docs/photopainter/bringup.md`；
+没有改 SenseCraft APP、Seeed_GFX 或其他已有业务文件。诊断在每次
+`update()` 结束后才等待按键；真机验收仍待硬件。
