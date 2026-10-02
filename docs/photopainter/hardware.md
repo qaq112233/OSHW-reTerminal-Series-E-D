@@ -149,7 +149,7 @@ BUSY 正常结束，也不能在 PMIC 通信失效或 GPIO 信号反灌时保证
 
 - 用户提供的 V1 `ESP32-S3-PhotoPainter-Schematic.pdf` 第1页 U2：
   IO47（模块pin24）→ `ESP_I2C_SDA`，IO48（模块pin25）→ `ESP_I2C_SCL`；
-  R33/R35为上拉。U5 pin39 SDA / pin40 SCK 经 `AXP_SDA` / `AXP_SCL` 接同一总线。
+  R33/R35为上拉。UP1 pin39 SDA / pin40 SCK 经 `AXP_SDA` / `AXP_SCL` 接同一总线。
 - 微雪 `components/user_app_bsp/user_app.cpp:16`：`I2cMasterBus I2cBus(48,47,0)`；
   `components/port_bsp/i2c_bsp.cpp:8-16` 明确构造参数顺序为 **SCL、SDA、port**。
 - 本项目定版 XPowersLib 与微雪随附版本均使用地址0x34；
@@ -198,7 +198,7 @@ ESP_ERR_TIMEOUT→5，ESP_FAIL→2。**5不是普通地址NACK**；`bus=OK`仅�
 记录驱动配置/安装/滤波状态、PMIC读取前后的SDA/SCL空闲电平；电平1只说明
 抽样时为高，**不证明时钟波形、总线或PMIC正常**，电平0也不能定位是哪颗器件拉低。
 
-PMIC失败后仅增加一次同总线RTC对照：V1图纸U8地址0x51；NXP PCF85063A
+PMIC失败后仅增加一次同总线RTC对照：V1图纸U1地址0x51；NXP PCF85063A
 数据手册表4明确0x00为Control_1。仅读取，不设置日期、清中断、设置闹钟或开启SHTC3。
 微雪提供的PCF85063 PDF链接本次返回验证页，未读取其内容；改用同型号NXP原厂手册：
 <https://www.nxp.com/docs/en/data-sheet/PCF85063A.pdf>（寄存器表与I2C写/读地址A2/A3）。
@@ -210,7 +210,56 @@ RTC响应是辅助证据，失败也可能与RTC供电状态有关，不能仅�
 Native I2C是该板唯一总线owner，不同时安装Wire和native驱动；回调日志错误缓存为atomic，
 避免主任务/guard并发写造成C++数据竞争。未做GPIO手动时钟恢复或未知电源rail操作。
 
-**实机待验证**：彻底断开USB及电池，再用诊断2获取错误/电平日志。
-当前更改修正了源码中的事务差异，但不能从旧ACK=5证明其就是根因。
+**实机结果更新**：诊断2也失败，详见下节；仍未确认这次测试是否经历USB和电池
+同时断开的冷启动。当前更改修正了源码中的事务差异，但不能证明其就是根因。
 主机测试模拟SDK函数和启动策略，覆盖结合读、前缀写、重试、错误及严格ID，
 不能代替真实I2C波形、PMIC通信、EPD显示和断电验收。
+
+### 诊断2实测阴性结果与供电排查边界（2026-10-02）
+
+用户提供的诊断2完整日志确认：
+
+```text
+native IDF port=0 config=ESP_OK install=ESP_OK filter7=ESP_OK
+idle_before SDA=0 SCL=0 idle_after SDA=0 SCL=0
+attempt=1..3 read_err=263 (ESP_ERR_TIMEOUT) chip_id=-1
+RTC_0x51_Control1_read=ESP_ERR_TIMEOUT
+Display NOT started; EPD_VCC off is UNCONFIRMED
+```
+
+- native事务形式已改，故障仍存在。不能继续把Arduino STOP/repeated-START差异
+  称作已找到的根因，也不能把未取得ID误称为芯片ID不匹配。
+- PMIC和RTC同时超时，优先排查共同总线、供电、真实板卡/管脚状态；这不是
+  已证明的硬件损坏结论，也不排除SDK/运行时GPIO配置问题。
+- 本地IDF4.4.7 `driver/gpio.h::gpio_get_level`警告：未启用输入时读值永远为0。
+  已核对Espressif官方v4.4.7 `components/driver/i2c.c::i2c_param_config`及
+  `i2c_set_pin`：为SDA/SCL设置初始输出1、`GPIO_MODE_INPUT_OUTPUT_OD`、上拉
+  与GPIO矩阵。bring-up在此之前只配置KEY GPIO4，失败入口未启动显示。
+  静态检查未找到遗漏输入使能的错误，但不能替代实机GPIO寄存器/波形/电压证据。
+- 重新查看用户V1图纸：电源芯片标号为 **UP1**，RTC为 **U1**，ESP模组为U2；
+  本文之前的U5/U8标号已更正。USB VBUS进入UP1 pin37；VSYS接其VIN1 pin23，
+  LX1 pin22经L2连接VCC3V3；R33/R35将I2C上拉至VCC3V3。这是连接事实，
+  不是对当前输出使能状态或实际电压的推断。
+- 本轮直读中文官方 `Instructions-For-Use`：功能介绍和产品使用均写明单击
+  PWR打开系统电源，KEY是原厂固件的唤醒/模式键。官方FAQ对Type-C供电问题
+  只回答“可以给锂电池供电”，没有在本次读取的页面中给出仅USB运行的详细条件。
+  **不把其他页面/历史表述混作本页证据，不断言必须接电池或已找到供电根因**。
+  当前日志已经证明ESP运行，不应反称整板完全未供电；需确认实际接电与PWR过程。
+
+下一轮所需事实：USB和主电池是否均完全断开（如另接RTC备用电池也应说明）；
+重新连接的供电方式、PWR操作；原厂固件此前是否正常。如正确冷启动后仍失败，
+再选择官方固件对照或量测SDA/SCL/VCC3V3，不交换GPIO、不忽略ID、不先上EPD。
+若另接RTC备用电池，不能把仅断USB/主电池称为所有电源域完全掉电。
+
+当前不修改运行代码、不生成诊断3。PMIC失联时任何软件方案都不能确认ALDO3
+已关闭；保存一组日志后断开所有供电，不让故障重启循环长期运行。
+
+本次核对来源：
+
+- 用户提供的V1原理图及诊断2串口日志。
+- Espressif IDF4.4.7原始驱动：
+  <https://github.com/espressif/esp-idf/blob/v4.4.7/components/driver/i2c.c>
+- 官方中文使用说明：
+  <https://docs.waveshare.net/ESP32-S3-PhotoPainter/Instructions-For-Use/>
+- 官方中文FAQ：
+  <https://docs.waveshare.net/ESP32-S3-PhotoPainter/FAQ/>
