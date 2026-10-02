@@ -37,6 +37,15 @@ SenseCraft_HMI 不拆成脱离上游的新项目。
   OTA 初始化按实际 `0x8D000` 放置，应用在 `0x90000`。输出与工具缓存不提交 Git。
   文件校验通过仍不是实机/物理关电验收；具体使用见 `flashing.md`。
 
+- 2026-10-02 首次实机反馈：旧 `bringup` 整包烧录成功，应用报
+  `[Bring-up] PMIC initialization failed; restarting` 并重启；屏幕和 KEY
+  测试尚未执行，不能称显示 bring-up 已通过。重新核对 V1 图纸 U2、U5
+  和微雪 `I2cMasterBus(scl,sda,port)`，确认 SDA=47、SCL=48、地址0x34，
+  两份 XPowers 源码均严格要求寄存器0x03的 ID=0x4A。
+  当前增加两目标共用的 PMIC 分层诊断、明确100kHz/50ms I2C配置及有限重试。
+  这是定位版本，不是已证实的根因修复；需取得新版 ACK/ID 日志后继续。
+  发布目录使用 `photopainter-v1-2026-10-02-pmic-diagnostic-1`，保留旧包但不推荐重刷。
+
 ## 后续开发优先查阅
 
 1. 项目入口和边界：`docs/photopainter/PROJECT.md`

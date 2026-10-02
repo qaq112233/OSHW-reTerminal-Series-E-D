@@ -5,6 +5,10 @@
 #include "boards/waveshare_photopainter/config.h"
 #include "boards/waveshare_photopainter/panel_power.h"
 #include <Wire.h>
+#include "boards/waveshare_photopainter/pmic_startup.h"
+
+static_assert(photopainter_pmic::kExpectedChipId == XPOWERS_AXP2101_CHIP_ID, "PMIC ID drift");
+static_assert(photopainter_pmic::kChipIdRegister == XPOWERS_AXP2101_IC_TYPE, "PMIC register drift");
 
 namespace {
 
@@ -76,9 +80,16 @@ void show_step() {
 void setup() {
     Serial.begin(115200);
     pinMode(PHOTOPAINTER_KEY_BUTTON, INPUT_PULLUP);
-    if (!pmic.init(Wire, PHOTOPAINTER_PMIC_SDA,
-                   PHOTOPAINTER_PMIC_SCL, PHOTOPAINTER_PMIC_ADDRESS)) {
-        Serial.println("[Bring-up] PMIC initialization failed; restarting");
+    const auto startup = photopainter_pmic::initialize(Wire, pmic, [](unsigned ms) { delay(ms); });
+    if (!startup.ready) {
+        // No display calls or rail enable on failure. Repeat the retained
+        // evidence briefly so USB CDC can reconnect before the reset.
+        for (unsigned i = 0; i < 4; ++i) {
+            photopainter_pmic::report(Serial, startup);
+            delay(250);
+        }
+        Serial.println("[Bring-up] PMIC initialization failed; restarting (EPD_VCC off UNCONFIRMED)");
+        Serial.flush();
         esp_restart();
         return;
     }
@@ -93,6 +104,12 @@ void setup() {
         esp_restart();
         return;
     }
+    // Only wait for USB after boot rail-off has been confirmed. No wait for a
+    // host is allowed while the panel is enabled.
+    const uint32_t usb_started = millis();
+    while (!Serial && millis() - usb_started < 1500) delay(10);
+    photopainter_pmic::report(Serial, startup);
+    Serial.println("[Bring-up] ALDO3 off register confirmed at boot; starting display test");
     if (!pmic.setALDO3Voltage(3300)) {
         Serial.println("[Bring-up] ALDO3 voltage setup failed");
         return;
@@ -121,6 +138,8 @@ void setup() {
         return;
     }
     rail_guard.disarm();
+    Serial.printf("[Bring-up] display allocated: %u x %u; PSRAM=%u bytes\n",
+                  display->width(), display->height(), ESP.getPsramSize());
     panel_ready = true;
     show_step();
 }

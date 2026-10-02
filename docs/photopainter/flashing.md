@@ -1,5 +1,43 @@
 # PhotoPainter V1：ESP Launchpad 首次烧录
 
+## 当前实机状态与选包（2026-10-02）
+
+旧目录 `build/photopainter-v1-2026-10-02` 的 bring-up 首次实机反馈为 PMIC初始化
+失败重启；烧录成功不等于屏幕测试通过。**请先使用新目录**：
+
+```text
+build/photopainter-v1-2026-10-02-pmic-diagnostic-1
+```
+
+新包内文件名仍是 `photopainter-v1-bringup-full.bin`，务必核对其所在目录；
+包内源码提交与 SHA256 应对应新版本。这个版本增加定位信息和有限重试，
+**并非已经证明故障解决**。暂时只刷 bring-up，仍从 **0x0** 写入完整16MB。
+不要通过改刷 SenseCraft 正式版绕过 PMIC 故障。
+
+启动日志增加（示例为预期成功分支，不是已经取得的实机日志）：
+
+```text
+[PhotoPainter PMIC] diagnostics=v1-20261002-1 SDA=47 SCL=48 address=0x34 clock=100000 timeout=50ms bus=OK
+[PhotoPainter PMIC] attempt=1 ACK=0 ID_TX=0 received=1 chip_id=74 expected=0x4A result=OK
+[Bring-up] ALDO3 off register confirmed at boot; starting display test
+```
+
+`chip_id` 使用十进制，**74就是0x4A**，-1表示未读取成功；ACK/ID_TX=255表示
+该阶段未执行，不能解读为芯片ID。需提供从复位开始的一组完整日志，特别是：
+
+| result | 已定位的失败层 |
+|---|---|
+| `WIRE_BEGIN_FAILED` | Arduino I2C总线开始失败，尚未读取 PMIC |
+| `PMIC_NO_ACK` | 地址0x34事务未成功，保留 ACK错误码 |
+| `CHIP_ID_READ_FAILED` | 地址事务成功，但ID寄存器发送或接收失败 |
+| `CHIP_ID_MISMATCH` | 读到了ID，但不符合两份源码的0x4A要求；不绕过检测 |
+| `XPOWERS_INIT_FAILED` | 原始ID正确，但随后库初始化失败 |
+
+失败时不会启动显示，**EPD_VCC关闭状态未确认**。新版只短暂重复日志然后重启，
+请保存一组后断开全部供电，包括电池；不要长时间留在失败复位循环中。
+串口在软复位后可能需要重新连接。初始化成功后继续原六色/方向测试，
+每页仍必须完成控制器POWER_OFF与ALDO3关闭回读后才等待 KEY。
+
 ## 适用范围与警告
 
 仅适用于用户确认的 **Waveshare ESP32-S3-PhotoPainter V1，16MB Flash / 8MB PSRAM**。

@@ -192,3 +192,15 @@ PMIC 寄存器状态位、是否插电、锂电百分比与电压的读法与 XP
   整包各段/FF 区、esptool 镜像信息与 ZIP 回读，附 SHA256 和 manifest。
 - 根 `.gitignore` 加入 `.build/`，让 WSL 重启后仍能复用工具链缓存；
   烧录包保存在已有忽略规则覆盖的 `build/`，不将编译产物提交到 Git。
+
+## 阶段 15：首次实机 PMIC 故障诊断（2026-10-02）
+
+- 新增板内 `pmic_startup.h`；`bringup.cpp` 和 `waveshare_photopainter.cpp`
+  共享显式总线开始检查、100kHz/50ms配置、最多三次 ACK/ID 检测和严格库初始化。
+  旧版本失败分支仅打印泛化错误并立即复位，新版保留可区分错误的日志，有限重复
+  后重启；不绕过 PMIC 身份、不改 GPIO、不盲写 rail、不改 EPD 刷新关电时序。
+- 成功初始化后仍先关闭 ALDO3再等待诊断串口、初始化显示；KEY 逻辑不改变。
+- 新增 `tests/photopainter_pmic_startup.cpp`：主机模拟总线失败、NACK、发送失败、
+  短读/无数据、错误ID、库失败、有限重试及最终恢复；固件编译静态断言核对库常量。
+- 仅 PhotoPainter 专用代码和文档；没有修改 Seeed APP、HAL、构建配置、第三方库
+  或只读 Waveshare reference。没有确认真实故障根因或宣称硬件修复成功。

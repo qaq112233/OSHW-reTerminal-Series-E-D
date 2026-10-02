@@ -137,3 +137,33 @@ BUSY 正常结束，也不能在 PMIC 通信失效或 GPIO 信号反灌时保证
 电压为零。若故障任务创建失败，则拒绝上电显示；PMIC 初始化或关电回读失败时
 重启而非继续进入 Wi-Fi/idle。反复重启仍不能修复 PMIC/I2C 硬件故障。Waveshare 示例并未
 实现上述 ALDO3 开关，不能把“复刻示例”与“实物断电已验收”混为一谈。
+
+### 首次实机 PMIC 启动失败与分层诊断（2026-10-02）
+
+用户在 V1 上从0x0烧入整包，烧录器检测16MB Flash和8MB PSRAM，启动后报
+`[Bring-up] PMIC initialization failed; restarting`。日志证明应用运行到 PMIC
+检测失败分支，尚未进入 EPD 初始化、刷新或 KEY 循环；不能据此判定屏幕坏、
+供电 rail 已关闭、SDA/SCL 反接或 Flash 烧录地址错误。
+
+本轮重新核对的证据：
+
+- 用户提供的 V1 `ESP32-S3-PhotoPainter-Schematic.pdf` 第1页 U2：
+  IO47（模块pin24）→ `ESP_I2C_SDA`，IO48（模块pin25）→ `ESP_I2C_SCL`；
+  R33/R35为上拉。U5 pin39 SDA / pin40 SCK 经 `AXP_SDA` / `AXP_SCL` 接同一总线。
+- 微雪 `components/user_app_bsp/user_app.cpp:16`：`I2cMasterBus I2cBus(48,47,0)`；
+  `components/port_bsp/i2c_bsp.cpp:8-16` 明确构造参数顺序为 **SCL、SDA、port**。
+- 本项目定版 XPowersLib 与微雪随附版本均使用地址0x34；
+  `REG/AXP2101Constants.h` 定义 IC_TYPE=0x03、CHIP_ID=0x4A；
+  两版 `initImpl()` 均严格比较 ID，没有证据支持跳过或放宽 ID 判定。
+
+`pmic_startup.h` 对两目标共用：显式检查 `Wire.begin(47,48,100000)` 返回值，
+设置50ms总线超时，最多三次检测（间隔20ms）；逐次保留地址 ACK、ID寄存器
+发送结果、接收长度、ID值和库初始化结果。读取事务沿用 XPowers 的 STOP 后读，
+不倒换引脚、不遍历未知地址、不对未识别芯片写 PMIC 寄存器、不使能任何供电rail。
+成功后仍先关闭 ALDO3并回读，再进入原来的显示流程。失败日志重复约1秒后重启，
+不是无限等待串口；诊断目标成功时仅在 ALDO3关闭确认后最多等待USB连接1.5秒。
+
+**待实机进一步定位**：是总线开始失败、无ACK、读寄存器失败、ID不匹配，还是库
+初始化失败。软件检查不能证明真实 PMIC/走线故障，也不能保证通信失败时物理断电。
+若失败重复，先保存一组完整日志，然后断开全部供电（包括电池），不要反复按 KEY
+或改刷同样依赖 PMIC 的主固件。主机模拟测试与编译不替代这些实物证据。

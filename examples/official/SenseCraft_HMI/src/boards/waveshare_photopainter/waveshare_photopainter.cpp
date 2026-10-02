@@ -6,6 +6,10 @@
 #include "boards/waveshare_photopainter/panel_power.h"
 
 #include <Wire.h>
+#include "boards/waveshare_photopainter/pmic_startup.h"
+
+static_assert(photopainter_pmic::kExpectedChipId == XPOWERS_AXP2101_CHIP_ID, "PMIC ID drift");
+static_assert(photopainter_pmic::kChipIdRegister == XPOWERS_AXP2101_IC_TYPE, "PMIC register drift");
 #include <esp_sleep.h>
 #include <driver/rtc_io.h>
 
@@ -37,14 +41,18 @@ public:
         power_.init();
         // Reset recovery: turn off EPD_VCC before mounting LittleFS or
         // starting network services (a previous refresh may have reset).
-        pmic_ready_ = pmic_.init(Wire, PHOTOPAINTER_PMIC_SDA,
-                                 PHOTOPAINTER_PMIC_SCL, PHOTOPAINTER_PMIC_ADDRESS);
+        const auto startup = photopainter_pmic::initialize(Wire, pmic_, [](unsigned ms) { delay(ms); });
+        pmic_ready_ = startup.ready;
         if (!pmic_ready_) {
+            for (unsigned i = 0; i < 4; ++i) {
+                photopainter_pmic::report(Serial, startup);
+                delay(250);
+            }
+            Serial.flush();
             Log.errorln("[PhotoPainter] PMIC unavailable; cannot establish safe EPD_VCC state");
             esp_restart();
             return;
         }
-        Wire.setClock(100000);
         guard_ready_ = rail_guard_.start(pmic_);
         if (!photopainter_panel::railOff(pmic_)) {
             // The guard may retry rail-off if restart stalls.
@@ -54,6 +62,8 @@ public:
             esp_restart();
             return;
         }
+        photopainter_pmic::report(Serial, startup);
+        Serial.println("[PhotoPainter] ALDO3 off register confirmed at boot");
     }
 
     void InitHardware() override {
