@@ -34,3 +34,6 @@ __pycache__/
 *.pem
 *.p12
 *.pfx
+
+# Local firmware build tools and dependency caches
+.build/

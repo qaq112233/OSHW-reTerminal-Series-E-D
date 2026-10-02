@@ -174,3 +174,21 @@ PMIC 寄存器状态位、是否插电、锂电百分比与电压的读法与 XP
   取消深睡。其他 Seeed 板默认仍调用原 `EPaper::update()`。
 - 新增 `tests/photopainter_rail_contract.py` 静态验证入口与保护；
   没有硬件时无法验收 J1 VDD 实际电压、BUSY 和残余电流。
+
+## 阶段 14：V1 首次烧录包（2026-10-02）
+
+- 增加 `tools/photopainter_flash_package.py`、
+  `tests/photopainter_flash_package.py` 与 `docs/photopainter/flashing.md`。
+  仅制作本地文件，不连接串口，不自动擦除/烧录硬件；没有修改 SenseCraft APP
+  或 Waveshare reference。
+- 两个已有环境均清理后重建，打包 bootloader、实际分区表、app0 与 OTA
+  初始化记录，填 FF 至完整 16MB。输出从 `0x0` 写入，因此明确警告会
+  重置整个板内 Flash。没有 `data` 预装目录，主固件使用现有
+  `LittleFS.begin(true)` 创建空文件系统，不另加文件系统资源镜像。
+- 不能套用 Arduino 默认 `boot_app0.bin` 的 `0xE000`：实际 otadata
+  是 `0x8D000`。打包器检查 sequence=1/CRC 后将初始化记录放到实际
+  OTA 分区，应用按二进制表的 `0x90000` 放置。
+- 静态检查覆盖分区表 MD5、ESP32-S3/16MB 头、OTA CRC、应用边界、
+  整包各段/FF 区、esptool 镜像信息与 ZIP 回读，附 SHA256 和 manifest。
+- 根 `.gitignore` 加入 `.build/`，让 WSL 重启后仍能复用工具链缓存；
+  烧录包保存在已有忽略规则覆盖的 `build/`，不将编译产物提交到 Git。

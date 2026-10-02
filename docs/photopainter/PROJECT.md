@@ -32,6 +32,11 @@ SenseCraft_HMI 不拆成脱离上游的新项目。
   `hardware.md` 区分软件关电、寄存器回读与未经实测的实际电压；
   编译通过不是真机或 PhotoPainter 云端端到端验收。
 
+- 2026-10-02：增加 V1 首次烧录打包器与 ESP Launchpad 操作说明。两个目标
+  清理后重建，输出从 `0x0` 写入的 16MB 整包；所有 Flash 设置/缓存会重置，
+  OTA 初始化按实际 `0x8D000` 放置，应用在 `0x90000`。输出与工具缓存不提交 Git。
+  文件校验通过仍不是实机/物理关电验收；具体使用见 `flashing.md`。
+
 ## 后续开发优先查阅
 
 1. 项目入口和边界：`docs/photopainter/PROJECT.md`
