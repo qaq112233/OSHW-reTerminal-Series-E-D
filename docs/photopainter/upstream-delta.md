@@ -204,3 +204,19 @@ PMIC 寄存器状态位、是否插电、锂电百分比与电压的读法与 XP
   短读/无数据、错误ID、库失败、有限重试及最终恢复；固件编译静态断言核对库常量。
 - 仅 PhotoPainter 专用代码和文档；没有修改 Seeed APP、HAL、构建配置、第三方库
   或只读 Waveshare reference。没有确认真实故障根因或宣称硬件修复成功。
+
+## 阶段 16：native PMIC事务对齐与总线定位（2026-10-02）
+
+- `boards/waveshare_photopainter/pmic_bus.h`新增板内native I2C adapter：
+  使用当前SDK的combined/repeated-START读和寄存器前缀写，通过XPowers回调绑定；
+  SDA/SCL/地址不变，复刻微雪上拉/7周期滤波及回调三次重试/100ms间隔。
+  不修改第三方XPowersLib、Seeed APP/HAL、Waveshare参考或其他板构建配置。
+- `pmic_startup.h`不再以零payload Wire探测作为门槛，直接strict native读ID；
+  区分原生错误而不将超时误标为普通NACK，记录SDA/SCL电平；失败时只读RTC对照。
+- 两个PhotoPainter入口移除Wire初始化，采用唯一native总线owner；
+  串口报告改用CRLF避免日志阶梯缩进。EPD rail上下电和BUSY保护不改变。
+- `tests/photopainter_pmic_startup.cpp`更新启动策略测试；新增
+  `tests/photopainter_pmic_bus.{cpp,py}`及测试专用`photopainter_sdk_stubs/fake_sdk.h`，
+  编译真实adapter并模拟底层SDK调用，覆盖combined读、256字节边界前缀写、
+  拒绝错误PMIC写地址、回调重试、配置失败清理与启动策略集成。
+- 确认了源码事务差异，不宣称其已经解释或修复了实机ACK=5；需冷启动后的诊断2日志。

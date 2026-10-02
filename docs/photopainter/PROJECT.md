@@ -46,6 +46,14 @@ SenseCraft_HMI 不拆成脱离上游的新项目。
   这是定位版本，不是已证实的根因修复；需取得新版 ACK/ID 日志后继续。
   发布目录使用 `photopainter-v1-2026-10-02-pmic-diagnostic-1`，保留旧包但不推荐重刷。
 
+- 2026-10-02 第二轮实机日志：诊断1 `bus=OK`，三次 `ACK=5`、
+  `ID_TX=255`、`chip_id=-1`。Arduino 2.0.17中5代表超时，不能等同地址NACK，
+  也没有实际读到ID。现将板内 PMIC改为微雪同类的 native I2C+XPowers回调，
+  统一采用 repeated-START寄存器读取；输出原生错误、空闲电平及只读RTC总线对照。
+  新目录 `photopainter-v1-2026-10-02-pmic-diagnostic-2`；这是源码差异修正和
+  下一轮实机定位版本，未证实 STOP/repeated-START差异就是此次超时根因。
+  刷入前应彻底断开USB和电池再上电，避免只复位ESP而不复位外设。
+
 ## 后续开发优先查阅
 
 1. 项目入口和边界：`docs/photopainter/PROJECT.md`

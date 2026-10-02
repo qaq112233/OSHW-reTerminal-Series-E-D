@@ -167,3 +167,50 @@ BUSY 正常结束，也不能在 PMIC 通信失效或 GPIO 信号反灌时保证
 初始化失败。软件检查不能证明真实 PMIC/走线故障，也不能保证通信失败时物理断电。
 若失败重复，先保存一组完整日志，然后断开全部供电（包括电池），不要反复按 KEY
 或改刷同样依赖 PMIC 的主固件。主机模拟测试与编译不替代这些实物证据。
+
+### 事务超时与 native 回调适配（2026-10-02，诊断2）
+
+第二轮实机日志稳定显示诊断1 `bus=OK` / `ACK=5`，三个attempt都超时，
+ID_TX=255（未尝试）、received=0、chip_id=-1；此时尚未开始EPD操作。
+`Arduino-ESP32 2.0.17 libraries/Wire/src/Wire.cpp` 的endTransmission返回映射明确：
+ESP_ERR_TIMEOUT→5，ESP_FAIL→2。**5不是普通地址NACK**；`bus=OK`仅说明
+驱动开始成功，不说明电气总线或器件响应正常。旧 `PMIC_NO_ACK`是泛化分类，
+必须连同ACK数字解释；本次没有证据支持改地址、交换GPIO或忽略芯片ID。
+
+确认并修正的实现差异：
+
+- 微雪 `components/pmicpower/power_bsp.cpp:19-42,69`：XPowers `begin(address,
+  readCallback,writeCallback)`，回调最多三次重试、100ms间隔。
+- 微雪 `components/port_bsp/i2c_bsp.cpp::i2c_read_buff`：寄存器读取调用
+  `i2c_master_transmit_receive`，写寄存器前缀后repeated START读取；
+  `i2c_write_buff`将寄存器号和payload放在同一写事务中。
+- 原移植用库的Arduino接口；定版 `XPowersCommon.hpp::readRegister`在
+  `endTransmission()`后单独`requestFrom()`，总线在两阶段间STOP释放。
+  诊断1还把空payload地址probe作为读取ID的必要前置步骤。
+- 当前 `pmic_bus.h`直接建立板内 I2C0：SDA47/SCL48、100kHz、上拉、
+  7周期毛刺滤波。当前Arduino框架带IDF4.4，使用该SDK的
+  `i2c_master_write_read_device`实现相同repeated-START**事务形式**，
+  不复制IDF5结构，不将两个SDK实现宣称完全相同，也不全局升级Seeed依赖。
+  XPowers仍严格检查ID=0x4A；无需再依赖Arduino零payloadprobe才能尝试读ID。
+
+每个 native事务最多50ms；回调最多三次、100ms间隔，startup最多三次，
+只对失败attempt间隔20ms。SDK驱动错误会原样报告，如ESP_ERR_TIMEOUT、ESP_FAIL。
+记录驱动配置/安装/滤波状态、PMIC读取前后的SDA/SCL空闲电平；电平1只说明
+抽样时为高，**不证明时钟波形、总线或PMIC正常**，电平0也不能定位是哪颗器件拉低。
+
+PMIC失败后仅增加一次同总线RTC对照：V1图纸U8地址0x51；NXP PCF85063A
+数据手册表4明确0x00为Control_1。仅读取，不设置日期、清中断、设置闹钟或开启SHTC3。
+微雪提供的PCF85063 PDF链接本次返回验证页，未读取其内容；改用同型号NXP原厂手册：
+<https://www.nxp.com/docs/en/data-sheet/PCF85063A.pdf>（寄存器表与I2C写/读地址A2/A3）。
+RTC响应是辅助证据，失败也可能与RTC供电状态有关，不能仅据两个错误断言板坏。
+
+诊断2依旧先严格识别PMIC、关闭并回读ALDO3，才进入任何EPD显示/网络等待；
+通信失败时不启动显示、不修改未识别的PMIC寄存器，短暂报告后重启。
+正常刷新后的POWER_OFF/BUSY、ALDO3关闭和故障guard保持不变。
+Native I2C是该板唯一总线owner，不同时安装Wire和native驱动；回调日志错误缓存为atomic，
+避免主任务/guard并发写造成C++数据竞争。未做GPIO手动时钟恢复或未知电源rail操作。
+
+**实机待验证**：彻底断开USB及电池，再用诊断2获取错误/电平日志。
+当前更改修正了源码中的事务差异，但不能从旧ACK=5证明其就是根因。
+主机测试模拟SDK函数和启动策略，覆盖结合读、前缀写、重试、错误及严格ID，
+不能代替真实I2C波形、PMIC通信、EPD显示和断电验收。

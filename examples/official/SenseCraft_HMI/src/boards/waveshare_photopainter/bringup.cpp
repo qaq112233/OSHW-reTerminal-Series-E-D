@@ -4,7 +4,7 @@
 #include "TFT_eSPI.h"
 #include "boards/waveshare_photopainter/config.h"
 #include "boards/waveshare_photopainter/panel_power.h"
-#include <Wire.h>
+#include "boards/waveshare_photopainter/pmic_bus.h"
 #include "boards/waveshare_photopainter/pmic_startup.h"
 
 static_assert(photopainter_pmic::kExpectedChipId == XPOWERS_AXP2101_CHIP_ID, "PMIC ID drift");
@@ -80,11 +80,13 @@ void show_step() {
 void setup() {
     Serial.begin(115200);
     pinMode(PHOTOPAINTER_KEY_BUTTON, INPUT_PULLUP);
-    const auto startup = photopainter_pmic::initialize(Wire, pmic, [](unsigned ms) { delay(ms); });
+    photopainter_pmic_bus::NativeBus pmic_bus;
+    const auto startup = photopainter_pmic::initialize(pmic_bus, pmic, [](unsigned ms) { delay(ms); });
     if (!startup.ready) {
         // No display calls or rail enable on failure. Repeat the retained
         // evidence briefly so USB CDC can reconnect before the reset.
         for (unsigned i = 0; i < 4; ++i) {
+            pmic_bus.reportConfig(Serial);
             photopainter_pmic::report(Serial, startup);
             delay(250);
         }
@@ -108,6 +110,7 @@ void setup() {
     // host is allowed while the panel is enabled.
     const uint32_t usb_started = millis();
     while (!Serial && millis() - usb_started < 1500) delay(10);
+    pmic_bus.reportConfig(Serial);
     photopainter_pmic::report(Serial, startup);
     Serial.println("[Bring-up] ALDO3 off register confirmed at boot; starting display test");
     if (!pmic.setALDO3Voltage(3300)) {

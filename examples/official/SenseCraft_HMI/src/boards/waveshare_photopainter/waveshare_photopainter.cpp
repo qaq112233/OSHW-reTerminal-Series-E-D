@@ -5,7 +5,7 @@
 #include "boards/waveshare_photopainter/axp2101_status.h"
 #include "boards/waveshare_photopainter/panel_power.h"
 
-#include <Wire.h>
+#include "boards/waveshare_photopainter/pmic_bus.h"
 #include "boards/waveshare_photopainter/pmic_startup.h"
 
 static_assert(photopainter_pmic::kExpectedChipId == XPOWERS_AXP2101_CHIP_ID, "PMIC ID drift");
@@ -41,10 +41,12 @@ public:
         power_.init();
         // Reset recovery: turn off EPD_VCC before mounting LittleFS or
         // starting network services (a previous refresh may have reset).
-        const auto startup = photopainter_pmic::initialize(Wire, pmic_, [](unsigned ms) { delay(ms); });
+        photopainter_pmic_bus::NativeBus pmic_bus;
+        const auto startup = photopainter_pmic::initialize(pmic_bus, pmic_, [](unsigned ms) { delay(ms); });
         pmic_ready_ = startup.ready;
         if (!pmic_ready_) {
             for (unsigned i = 0; i < 4; ++i) {
+                pmic_bus.reportConfig(Serial);
                 photopainter_pmic::report(Serial, startup);
                 delay(250);
             }
@@ -62,6 +64,7 @@ public:
             esp_restart();
             return;
         }
+        pmic_bus.reportConfig(Serial);
         photopainter_pmic::report(Serial, startup);
         Serial.println("[PhotoPainter] ALDO3 off register confirmed at boot");
     }

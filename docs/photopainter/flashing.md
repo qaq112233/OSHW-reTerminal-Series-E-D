@@ -1,42 +1,51 @@
 # PhotoPainter V1：ESP Launchpad 首次烧录
 
-## 当前实机状态与选包（2026-10-02）
+## 当前实机状态与选包（2026-10-02，诊断2）
 
-旧目录 `build/photopainter-v1-2026-10-02` 的 bring-up 首次实机反馈为 PMIC初始化
-失败重启；烧录成功不等于屏幕测试通过。**请先使用新目录**：
+旧bring-up在PMIC初始化时重启；诊断1进一步显示 `ACK=5`（Arduino事务超时），
+不是读到了错误芯片ID。**请先彻底断开USB与电池，再用新目录**：
 
 ```text
-build/photopainter-v1-2026-10-02-pmic-diagnostic-1
+build/photopainter-v1-2026-10-02-pmic-diagnostic-2
 ```
 
-新包内文件名仍是 `photopainter-v1-bringup-full.bin`，务必核对其所在目录；
-包内源码提交与 SHA256 应对应新版本。这个版本增加定位信息和有限重试，
-**并非已经证明故障解决**。暂时只刷 bring-up，仍从 **0x0** 写入完整16MB。
-不要通过改刷 SenseCraft 正式版绕过 PMIC 故障。
+新包内仍选 `photopainter-v1-bringup-full.bin`，务必检查目录，不要选择诊断1。
+从 **0x0** 写入完整16MB，所有板内Flash数据重置；暂时不刷SenseCraft正式版。
 
-启动日志增加（示例为预期成功分支，不是已经取得的实机日志）：
+本轮改为微雪同类native I2C+XPowers回调的repeated-START读寄存器方式，
+不放宽ID判断、不交换GPIO。这是源码差异修正和定位版本，**尚未实机证实根因已修复**。
+当前SDK是IDF4.4，不宣称与微雪IDF5二进制/驱动完全相同。
+
+成功时预期类似（这是示例，不是已取得的实机结果）：
 
 ```text
-[PhotoPainter PMIC] diagnostics=v1-20261002-1 SDA=47 SCL=48 address=0x34 clock=100000 timeout=50ms bus=OK
-[PhotoPainter PMIC] attempt=1 ACK=0 ID_TX=0 received=1 chip_id=74 expected=0x4A result=OK
+[PhotoPainter I2C] native IDF port=0 config=ESP_OK install=ESP_OK filter7=ESP_OK
+[PhotoPainter PMIC] diagnostics=v1-20261002-2 SDA=47 SCL=48 address=0x34 clock=100000 timeout=50ms bus=CONFIGURED transport=native-repeated-start
+[PhotoPainter I2C] idle_before SDA=1 SCL=1 idle_after SDA=1 SCL=1
+[PhotoPainter PMIC] attempt=1 read_err=0 (ESP_OK) chip_id=74 expected=0x4A callback_err=0 result=OK
 [Bring-up] ALDO3 off register confirmed at boot; starting display test
 ```
 
-`chip_id` 使用十进制，**74就是0x4A**，-1表示未读取成功；ACK/ID_TX=255表示
-该阶段未执行，不能解读为芯片ID。需提供从复位开始的一组完整日志，特别是：
+请保存从复位开始的完整日志，重点是：
 
-| result | 已定位的失败层 |
+- `diagnostics=v1-20261002-2`：确认刷到了新版本。
+- `config/install/filter7`：SDK配置阶段，NOT_ATTEMPTED不代表成功。
+- `idle_before/idle_after`：总线抽样电平，1/1不等于器件已响应。
+- `read_err`及错误名字：native失败原因，如ESP_ERR_TIMEOUT或ESP_FAIL。
+- `chip_id`：十进制，74=0x4A；-1表示未成功读到ID。
+- PMIC失败时的 `RTC_0x51_Control1_read`：只读同总线RTC对照，未修改RTC设置。
+
+| result | 失败层 |
 |---|---|
-| `WIRE_BEGIN_FAILED` | Arduino I2C总线开始失败，尚未读取 PMIC |
-| `PMIC_NO_ACK` | 地址0x34事务未成功，保留 ACK错误码 |
-| `CHIP_ID_READ_FAILED` | 地址事务成功，但ID寄存器发送或接收失败 |
-| `CHIP_ID_MISMATCH` | 读到了ID，但不符合两份源码的0x4A要求；不绕过检测 |
-| `XPOWERS_INIT_FAILED` | 原始ID正确，但随后库初始化失败 |
+| `NATIVE_BUS_BEGIN_FAILED` | 驱动配置、安装或滤波失败，结合前一行定位 |
+| `NATIVE_ID_READ_FAILED` | combined读ID失败，保留native错误名字 |
+| `CHIP_ID_MISMATCH` | 读到了ID但不是0x4A，不跳过检测 |
+| `XPOWERS_CALLBACK_INIT_FAILED` | 初次ID读取正确，XPowers回调初始化失败 |
 
-失败时不会启动显示，**EPD_VCC关闭状态未确认**。新版只短暂重复日志然后重启，
-请保存一组后断开全部供电，包括电池；不要长时间留在失败复位循环中。
-串口在软复位后可能需要重新连接。初始化成功后继续原六色/方向测试，
-每页仍必须完成控制器POWER_OFF与ALDO3关闭回读后才等待 KEY。
+正常刷新后仍必须等待控制器POWER_OFF/BUSY并关闭ALDO3，再等待KEY。
+**如果仍反复失败，保存一组日志后断开全部供电，包括电池。** 此时EPD_VCC关闭
+状态未确认，不能长时间留在失败循环。只拔USB而电池仍连接不属于彻底断电；
+复位ESP也不等于重置总线上的全部外设。不要绕过检测、短接总线或改刷主固件碰运气。
 
 ## 适用范围与警告
 
