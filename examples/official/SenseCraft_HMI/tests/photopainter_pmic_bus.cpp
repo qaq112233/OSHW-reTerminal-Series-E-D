@@ -4,6 +4,15 @@
 #include <cstdio>
 #include <string>
 #include <vector>
+#include <map>
+
+std::map<uint32_t, uint32_t> registers;
+unsigned register_reads = 0;
+uint32_t fake_register_read(uint32_t address) {
+    ++register_reads;
+    auto it = registers.find(address);
+    return it == registers.end() ? 0 : it->second;
+}
 
 struct Driver {
     int config_error = ESP_OK, install_error = ESP_OK, filter_error = ESP_OK;
@@ -75,6 +84,26 @@ struct Output {
 };
 int main() {
     using namespace photopainter_pmic_bus;
+    { // Captured values stay frozen after the live register fixture changes.
+      registers = {{GPIO_IN1_REG, 1U << 15}, {IO_MUX_GPIO47_REG, FUN_IE | FUN_PU | (1 << 12)},
+                   {GPIO_PIN47_REG, GPIO_PIN47_PAD_DRIVER},
+                   {GPIO_FUNC47_OUT_SEL_CFG_REG, 90},
+                   {GPIO_FUNC0_IN_SEL_CFG_REG + I2CEXT0_SDA_IN_IDX * 4, 0x80 | 47},
+                   {GPIO_FUNC0_IN_SEL_CFG_REG + I2CEXT0_SCL_IN_IDX * 4, 0x80 | 48}};
+      const auto original = registers;
+      register_reads = 0;
+      auto snapshot = photopainter_gpio::capture();
+      assert(register_reads == 12 && registers == original);
+      assert(snapshot.sda.input_select == 0xAF && snapshot.scl.input_select == 0xB0);
+      registers[GPIO_IN1_REG] = 1U << 16;
+      Output o; photopainter_gpio::report(o, "saved", snapshot);
+      assert(o.text.find("gpio=47 level=1 IE=1 PU=1 PD=0 OD=1 FUNC=1") != std::string::npos);
+      assert(o.text.find("gpio=48 level=0 IE=0") != std::string::npos);
+      assert(register_reads == 12); // Formatting does not resample hardware.
+      Output live; photopainter_gpio::report(live, "live", photopainter_gpio::capture());
+      assert(live.text.find("gpio=47 level=0") != std::string::npos);
+      assert(live.text.find("gpio=48 level=1") != std::string::npos);
+      registers.clear(); }
     { d = {}; NativeBus b; assert(b.begin(47,48,100000));
       assert(d.config.sda_io_num == 47 && d.config.scl_io_num == 48);
       assert(d.config.master.clk_speed == 100000 && d.config.sda_pullup_en && d.config.scl_pullup_en);

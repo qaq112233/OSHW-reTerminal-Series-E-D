@@ -81,7 +81,7 @@ inline const char* failureName(Failure failure) {
 
 template<class Output>
 void report(Output& out, const Startup& result) {
-    out.printf("[PhotoPainter PMIC] diagnostics=v1-20261002-2 SDA=%d SCL=%d address=0x%02X clock=100000 timeout=50ms bus=%s transport=native-repeated-start\r\n",
+    out.printf("[PhotoPainter PMIC] diagnostics=v1-20261005-3 SDA=%d SCL=%d address=0x%02X clock=100000 timeout=50ms bus=%s transport=native-repeated-start\r\n",
                PHOTOPAINTER_PMIC_SDA, PHOTOPAINTER_PMIC_SCL,
                PHOTOPAINTER_PMIC_ADDRESS, result.bus_ready ? "CONFIGURED" : "FAILED");
     out.printf("[PhotoPainter I2C] idle_before SDA=%d SCL=%d idle_after SDA=%d SCL=%d\r\n",

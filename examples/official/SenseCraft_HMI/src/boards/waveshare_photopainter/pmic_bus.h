@@ -8,6 +8,7 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include "boards/waveshare_photopainter/config.h"
+#include "boards/waveshare_photopainter/pmic_gpio_diagnostics.h"
 
 // Waveshare uses XPowers callbacks backed by native combined register reads.
 // Arduino 2.0.17 ships IDF 4.4, so use its write_read API rather than copying
@@ -64,6 +65,7 @@ class NativeBus {
 public:
     bool begin(int sda, int scl, unsigned frequency) {
         if (installed_) return true;
+        before_setup_ = photopainter_gpio::capture();
         i2c_config_t config = {};
         config.mode = I2C_MODE_MASTER;
         config.sda_io_num = static_cast<gpio_num_t>(sda);
@@ -81,6 +83,7 @@ public:
             return false;
         }
         installed_ = true;
+        after_setup_ = photopainter_gpio::capture();
         return true;
     }
 
@@ -112,9 +115,13 @@ public:
                    config_error_ == kNotAttempted ? "NOT_ATTEMPTED" : esp_err_to_name(config_error_),
                    install_error_ == kNotAttempted ? "NOT_ATTEMPTED" : esp_err_to_name(install_error_),
                    filter_error_ == kNotAttempted ? "NOT_ATTEMPTED" : esp_err_to_name(filter_error_));
+        photopainter_gpio::report(out, "before_setup", before_setup_);
+        photopainter_gpio::report(out, "after_setup", after_setup_);
+        photopainter_gpio::report(out, "at_report", photopainter_gpio::capture());
     }
 private:
     bool installed_ = false;
+    photopainter_gpio::Snapshot before_setup_, after_setup_;
     // NOT_ATTEMPTED is rendered explicitly, not falsely as successful setup.
     static constexpr int kNotAttempted = -2;
     int config_error_ = kNotAttempted;

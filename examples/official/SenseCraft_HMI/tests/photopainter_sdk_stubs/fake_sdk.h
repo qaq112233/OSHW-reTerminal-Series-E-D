@@ -26,3 +26,15 @@ esp_err_t i2c_filter_enable(i2c_port_t, uint8_t);
 esp_err_t i2c_master_write_read_device(i2c_port_t, uint8_t, const uint8_t*, size_t,
                                       uint8_t*, size_t, TickType_t);
 esp_err_t i2c_master_write_to_device(i2c_port_t, uint8_t, const uint8_t*, size_t, TickType_t);
+
+// Read-only GPIO snapshot fixture. Production builds use the S3 SDK headers.
+uint32_t fake_register_read(uint32_t address);
+#define REG_READ(address) fake_register_read(address)
+constexpr uint32_t GPIO_IN1_REG = 0, GPIO_ENABLE1_REG = 4, GPIO_OUT1_REG = 8,
+    PIN_CTRL = 12, IO_MUX_GPIO47_REG = 16, GPIO_PIN47_REG = 20,
+    GPIO_FUNC47_OUT_SEL_CFG_REG = 24, IO_MUX_GPIO48_REG = 28,
+    GPIO_PIN48_REG = 32, GPIO_FUNC48_OUT_SEL_CFG_REG = 36,
+    GPIO_FUNC0_IN_SEL_CFG_REG = 1000;
+constexpr unsigned I2CEXT0_SDA_IN_IDX = 90, I2CEXT0_SCL_IN_IDX = 89;
+constexpr uint32_t FUN_IE = 1 << 9, FUN_PU = 1 << 8, FUN_PD = 1 << 7,
+    GPIO_PIN47_PAD_DRIVER = 1 << 2, MCU_SEL_M = 7 << 12, MCU_SEL_S = 12;

@@ -767,7 +767,7 @@ void EnterDeepSleep()
     HAL::SharedSpiLock spi_lock;
     if (!HAL::GetHAL().prepareForDeepSleep())
     {
-        Log.errorln("[app_device_info] Deep sleep cancelled: panel power-off failed.");
+        Log.errorln("[app_device_info] Deep sleep cancelled: board preparation failed (panel power or wakeup).");
         deep_sleep_pending.store(false);
         return;
     }

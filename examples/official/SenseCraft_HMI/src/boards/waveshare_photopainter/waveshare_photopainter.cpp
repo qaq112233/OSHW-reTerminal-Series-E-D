@@ -156,9 +156,15 @@ public:
         esp_err_t err = esp_sleep_enable_ext1_wakeup(mask, ESP_EXT1_WAKEUP_ANY_LOW);
         if (err != ESP_OK) {
             Log.errorln("[PhotoPainter] EXT1 wakeup configuration failed: %d", err);
+            return false;
         }
-        rtc_gpio_pulldown_dis(static_cast<gpio_num_t>(PHOTOPAINTER_KEY_BUTTON));
-        rtc_gpio_pullup_en(static_cast<gpio_num_t>(PHOTOPAINTER_KEY_BUTTON));
+        const auto key_gpio = static_cast<gpio_num_t>(PHOTOPAINTER_KEY_BUTTON);
+        err = rtc_gpio_pulldown_dis(key_gpio);
+        if (err == ESP_OK) err = rtc_gpio_pullup_en(key_gpio);
+        if (err != ESP_OK) {
+            Log.errorln("[PhotoPainter] KEY RTC pull configuration failed: %d", err);
+            return false;
+        }
         // A held wake key causes an immediate wake-loop with ANY_LOW.
         // Wait for both inputs to be released, matching Waveshare's BOOT
         // release wait, with the panel already POWER_OFF/BUSY complete.

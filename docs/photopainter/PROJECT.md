@@ -39,7 +39,7 @@ SenseCraft_HMI 不拆成脱离上游的新项目。
 
 - 2026-10-02 首次实机反馈：旧 `bringup` 整包烧录成功，应用报
   `[Bring-up] PMIC initialization failed; restarting` 并重启；屏幕和 KEY
-  测试尚未执行，不能称显示 bring-up 已通过。重新核对 V1 图纸 U2、U5
+  测试尚未执行，不能称显示 bring-up 已通过。重新核对 V1 图纸 U2、UP1
   和微雪 `I2cMasterBus(scl,sda,port)`，确认 SDA=47、SCL=48、地址0x34，
   两份 XPowers 源码均严格要求寄存器0x03的 ID=0x4A。
   当前增加两目标共用的 PMIC 分层诊断、明确100kHz/50ms I2C配置及有限重试。
@@ -62,6 +62,11 @@ SenseCraft_HMI 不拆成脱离上游的新项目。
   暂不生成仅调参数的新固件、不绕过PMIC检测。下一步需确认USB和电池完全
   断开后的冷启动、实际供电与PWR开机过程，必要时用官方固件作对照。
   PMIC通信失败时无法保证EPD_VCC断电，应保存日志后断开全部供电。
+
+- 2026-10-05再核查：本地微雪reference与官方最新HEAD一致。修正日志等级
+  与深睡准备失败返回值，新增只读GPIO三阶段寄存器快照（诊断3）。两个目标
+  构建及主机回归通过，PMIC实测仍未通过。微雪低功耗例程有额外GPIO21唤醒
+  流程，其适用前置状态待确认。见 `source-review-2026-10-05.md` 和 `flashing.md`。
 
 ## 后续开发优先查阅
 

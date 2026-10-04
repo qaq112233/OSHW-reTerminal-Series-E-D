@@ -4,6 +4,18 @@
 PhotoPainter fork 引入前的提交。移植应以 Seeed 的应用为主体；
 `references/ESP32-S3-PhotoPainter` 为只读硬件参考。
 
+## 2026-10-05：再核查与诊断3
+
+- `platformio.ini`：仅PhotoPainter环境将无效的 `CORE_DEBUG_LEVEL=debug`
+  改为数值3（INFO），bring-up继承。
+- 板内 `pmic_gpio_diagnostics.h`、`pmic_bus.h`：增加配置前/后的只读GPIO
+  寄存器快照和报告；`pmic_startup.h`更新诊断标识，I2C事务策略不变。
+- `waveshare_photopainter.cpp`：EXT1或RTC上下拉配置失败时取消深睡。
+- Seeed原文件 `APP/app_device_info.cpp`：通用深睡准备失败日志同时涵盖电源和
+  唤醒配置，避免误报；一行文案变化，无板型特判。
+- PMIC adapter主机测试扩展GPIO采样覆盖，参考子模块未修改。细节见
+  `source-review-2026-10-05.md`，没有实机根因修复或硬件验收声明。
+
 ## 阶段 2：最小 Board（构建/真机状态见阶段提交）
 
 | Seeed 原文件 | 变更 | 原因与影响 |

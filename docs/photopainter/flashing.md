@@ -1,12 +1,28 @@
 # PhotoPainter V1：ESP Launchpad 首次烧录
 
-## 当前实机状态（2026-10-02，诊断2仍失败）
+## 最新诊断包（2026-10-05，诊断3，尚未实测）
+
+```text
+build/photopainter-v1-2026-10-05-pmic-diagnostic-3
+```
+
+先选该目录的 `photopainter-v1-bringup-full.bin`，ESP Launchpad从 **0x0**
+写入16MB整包（会重置板内全部Flash数据），暂不刷SenseCraft正式版。
+诊断3修复Arduino日志等级，并增加只读GPIO寄存器快照；不是已经解决PMIC超时的
+验收固件。诊断标识 `v1-20261005-3`，需保留 `before_setup / after_setup /
+at_report` 三组GPIO行及PMIC/RTC日志。预期字段解释见 `source-review-2026-10-05.md`。
+
+测试前彻底断开USB及电池再按正常开机方式上电；如接有RTC备用电池也应说明。
+若故障重复，保存一组日志后断开所有供电，避免长期处于EPD_VCC状态未确认的循环。
+仍请记录供电方式、PWR操作及原厂固件此前是否正常，供对照排查。
+
+## 上一轮实机状态（2026-10-02，诊断2仍失败）
 
 **最新实机反馈：诊断2也未通过PMIC初始化。** native配置/安装/滤波为ESP_OK，
 但PMIC三次及RTC对照均为ESP_ERR_TIMEOUT，SDA/SCL软件采样为0；显示/KEY
 测试尚未开始。不是刷写失败，也没有读到错误芯片ID。
 
-当前没有发布诊断3，**不要为排查而重复烧录诊断2或改刷正式版**。
+诊断2未解决故障，**不要为排查而重复烧录诊断2或改刷正式版**。
 保存一组日志后断开USB与电池；如接了RTC备用电池，也需断开或明确说明。
 先确认冷启动、供电方式与PWR操作，必要时用官方固件对照。
 PMIC无法通信时ALDO3关闭状态未确认，不能长期留在重启循环。

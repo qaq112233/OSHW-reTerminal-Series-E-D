@@ -7,7 +7,8 @@ here = Path(__file__).resolve().parent
 with tempfile.TemporaryDirectory(prefix="photopainter-pmic-sdk-") as tmp:
     root = Path(tmp)
     for header in ("driver/i2c.h", "driver/gpio.h", "esp_err.h",
-                   "freertos/FreeRTOS.h", "freertos/task.h"):
+                   "freertos/FreeRTOS.h", "freertos/task.h", "soc/soc.h",
+                   "soc/gpio_reg.h", "soc/gpio_sig_map.h", "soc/io_mux_reg.h"):
         path = root / header
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text('#include "fake_sdk.h"\n')
